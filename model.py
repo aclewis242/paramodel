@@ -23,6 +23,7 @@ class SIR:
     Es = []
     num_Es = -1
     is_vector = False
+    
     def __init__(self, p0: population, **kwargs):
         '''
         Initialises the model with the given parameters.
@@ -85,19 +86,29 @@ class SIR:
         - `rpt`: The number of times to repeat said event.
         '''
         pop = self.pop
-        sn = self.sn
+        def addPopMult(idx, rpt, sn):
+            pop.addPop(list(map(lambda x: float(rpt)*x, self.Es[idx])), sn)
         if idx >= self.num_Es:
-            if random.random() < self.mr: sn = random.choice(list(pop.inf.keys()))
             pop = list(self.itr.keys())[idx-self.num_Es]
             idx = 1
-        pop.addPop(list(map(lambda x: float(rpt)*x, self.Es[idx])), sn)
+            if self.is_vector and len(self.pop.individuals):
+                to_infect = {}
+                for i in range(int(rpt)):
+                    indv = random.choice(self.pop.individuals)
+                    strn = indv.infect()
+                    if strn in to_infect.keys(): to_infect[strn] += 1
+                    else: to_infect[strn] = 1
+                for strn in to_infect:
+                    addPopMult(idx, to_infect[strn], strn)
+                return self.pop.getPop(self.sn)
+        addPopMult(idx, rpt, self.sn)
         return self.pop.getPop(self.sn)
     
     def newStrain(self, nsn='new'):
         '''
         Generates a copy of this model with the given strain name.
         '''
-        new_mdl = SIR(self.pop, sn=nsn, pn=self.pn)
+        new_mdl = SIR(self.pop, sn=nsn, pn=self.pn, is_vector=self.pop.is_vector)
         new_mdl.__dict__.update(self.__dict__)
         new_mdl.sn = nsn
         new_mdl.itr = dict(new_mdl.itr)

@@ -28,10 +28,10 @@ VEC = {         # Parameters for transmission vector behavior (mosquito)
     'ir': 0.,   # Infection rate between individuals. Largely obsolete for a vector-based model
     'rr': 0,    # Recovery rate
     'wi': 0.,   # Waning immunity rate
-    'mr': 1e-3,             # Mutation rate
+    'mr': 1e-1,             # Mutation rate
     'pn': 'vec',            # Short population name, used in console output & within the code
     'pn_full': 'Vector',    # Full population name, used in graph titles
-    'is_vector': True       # Whether or not the population is a disease vector
+    'is_vector': True,      # Whether or not the population is a disease vector
 }
 HST1 = {
     'bd': 0.,
@@ -63,8 +63,8 @@ PARAMS_1 = HST1
 PARAMS_2 = VEC
 PARAMS_3 = HST2
 
-def run(p0: np.ndarray=np.array([[2, .1, 0], [2.1, 0, 0], [2, .1, 0]], dtype='float64'), p_fac: float=5e6, nt: float=4.,
-        plot_res: bool=True, t_scale: float=5000., do_allele_mod: bool=True, is_haploid: bool=True):
+def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0], [20, 1, 0]], dtype='float64'), p_fac: float=10, nt: float=6.,
+        plot_res: bool=True, t_scale: float=200., do_allele_mod: bool=True, is_haploid: bool=True, para_lsp: float=2., pc: int=24):
     '''
     Run the simulation.
 
@@ -81,19 +81,20 @@ def run(p0: np.ndarray=np.array([[2, .1, 0], [2.1, 0, 0], [2, .1, 0]], dtype='fl
     if do_allele_mod: alleles = ALLELES
     p0 *= p_fac
     t_max = t_scale
+    para_gens = int((24/nt)/para_lsp)
     nt = float(int(nt*t_scale))
-    [p0_1, p0_2, p0_3] = [population(p0[i]) for i in range(3)]
+    [p0_1, p0_2, p0_3] = [population(p0[i], pc=pc) for i in range(3)]
     m1 = SIR(p0_1, **PARAMS_1)
     m2 = SIR(p0_2, **PARAMS_2)
     m3 = SIR(p0_3, **PARAMS_3)
-    itr_h1 = 0.24 # h1 <-> vec
-    itr_h2 = 0.08 # h2 <-> vec
+    itr_h1 = 0.30 # h1 <-> vec
+    itr_h2 = 0.10 # h2 <-> vec
     m1.itr = {p0_2: itr_h1, p0_3: 0.} # the number represents the rate at which m1 infects that population
     m2.itr = {p0_1: itr_h1, p0_3: itr_h2}
     m3.itr = {p0_1: 0., p0_2: itr_h2}
     t0 = time.time()
     mdls = [m1, m2, m3]
-    ts, ps, times, pops = simShell(t_max, mdls, nt, alleles, is_haploid)
+    ts, ps, times, pops = simShell(t_max, mdls, nt, alleles, is_haploid, para_gens)
     ex_tm = time.time() - t0
     times_norm = list(100*normalise(np.array(times)))
     print(f'Execution time: {ex_tm}')

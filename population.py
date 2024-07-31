@@ -1,4 +1,5 @@
 from func_lib import *
+from individual import *
 
 class population:
     '''
@@ -10,8 +11,10 @@ class population:
     pn = ''
     tot_pop = 0
     is_vector = False
+    indvs = []
+    pc = 0
 
-    def __init__(self, p0: list[int], pn: str='', isn: str='init'):
+    def __init__(self, p0: list[int], pn: str='', isn: str='init', pc: int=120):
         '''
         Initialises the population.
 
@@ -27,6 +30,7 @@ class population:
         self.rec[isn] = p0[2]
         self.pn = pn
         self.tot_pop = sum(p0)
+        self.pc = pc
     
     def getPop(self, sn: str='init') -> list[int]:
         '''
@@ -56,8 +60,21 @@ class population:
         '''
         self.sus += p[0]
         self.inf[sn] += p[1]
+        if self.is_vector:
+            if p[1] >= 0:
+                for i in range(int(p[1])): self.indvs += [individual(self.pc, sn.split('.'))]
+            else: self.individuals = self.indvs[:int(p[1])]
+            random.shuffle(self.indvs)
         self.rec[sn] += p[2]
         self.tot_pop += (p[0] + p[1] + p[2])
+    
+    @property
+    def individuals(self) -> list[individual]:
+        return self.indvs
+    
+    @individuals.setter
+    def individuals(self, value: list[individual]):
+        self.indvs = value
 
     def addStrain(self, nsn: str):
         '''

@@ -2,8 +2,9 @@ from model import *
 from allele import *
 import numpy as np
 import time
+import os
 
-def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=[], is_haploid: bool=True):
+def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=[], is_haploid: bool=True, para_gens: int=1):
     '''
     Manages the time iterations of the simulation.
 
@@ -23,6 +24,7 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
     dt = tmax/(nt - 1)
     nt = int(nt)
 
+    vec_strain_2_mdl = {}
     if len(alleles):
         loci = ''
         for a in alleles:
@@ -43,7 +45,6 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
             genotypes.sort()
         genotypes = [g[:-1] for g in genotypes]
         new_models = []
-        vec_strain_2_mdl = {}
         mdls.sort(key=lambda x: x.is_vector, reverse=True)
         for m in mdls:
             for g in genotypes:
@@ -80,6 +81,9 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
     num_Rs = len(mdls[0].Rs)
     num_mdls = len(mdls)
     all_Rs = np.array([0.0 for i in range(num_mdls*num_Rs)])
+    vec_pop = [p for p in pops if p.is_vector][0]
+
+    [os.remove(file) for file in os.listdir() if file.endswith('.dat')]
 
     for i in ts_i:
         tm = time.time()
@@ -113,10 +117,10 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
         tm = time.time()
         times[6] += time.time() - tm
         tm = time.time()
-        
+        for indv in vec_pop.individuals: indv.genDrift(para_gens, list(vec_strain_2_mdl.values())[0].mr)
         times[7] += time.time() - tm
         tm = time.time()
-
+        print(f'{int(100*i/nt)}%; vec indvs: {len(vec_pop.individuals)}', end='\r')
         times[8] += time.time() - tm
         tm = time.time()
         times[9] += time.time() - tm
