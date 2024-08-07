@@ -3,8 +3,7 @@ from allele import *
 import numpy as np
 import time
 
-def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=[], is_haploid: bool=True, para_gens: int=1,
-             is_hyb: bool=True):
+def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=[], para_gens: int=1):
     '''
     Manages the time iterations of the simulation.
 
@@ -25,38 +24,57 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
     nt = int(nt)
 
     vec_strain_2_mdl = {}
+    is_haploid = False
+    for m in mdls:
+        if m.pop.is_hap: is_haploid = True
+    is_hyb = False
+    for m in mdls:
+        if m.pop.is_dip and is_haploid: is_hyb = True
     if len(alleles):
         loci = ''
         for a in alleles:
             if a.locus not in loci: loci += a.locus
-        genotypes = []
         num_combs = 3 - is_haploid
         genotypes = ['' for i in range(num_combs**len(loci))]
-        for l in loci:
-            for i in range(len(genotypes)):
-                if is_haploid:
-                    if i%2 == 0: genotypes[i] += l.upper()
-                    if i%2 == 1: genotypes[i] += l.lower()
-                else:
-                    if i%3 == 0: genotypes[i] += (l.upper() + l.lower())
-                    if i%3 == 1: genotypes[i] += 2*l.upper()
-                    if i%3 == 2: genotypes[i] += 2*l.lower()
-                genotypes[i] += '.'
-            genotypes.sort()
-        genotypes = [g[:-1] for g in genotypes]
+        genotypes_dip = ['' for i in range(3**len(loci))]
+        def genGenotypes(lc: list[str], gt: list[str], i_h: bool):
+            for l in lc:
+                for i in range(len(gt)):
+                    if i_h:
+                        if i%2 == 0: gt[i] += l.upper()
+                        if i%2 == 1: gt[i] += l.lower()
+                    else:
+                        if i%3 == 0: gt[i] += (l.upper() + l.lower())
+                        if i%3 == 1: gt[i] += 2*l.upper()
+                        if i%3 == 2: gt[i] += 2*l.lower()
+                    gt[i] += '.'
+                gt.sort()
+            gt = [g[:-1] for g in gt]
+            return gt
+        genotypes = genGenotypes(loci, genotypes, is_haploid)
+        if is_hyb: genotypes_dip = genGenotypes(loci, genotypes_dip, False)
+        else: genotypes_dip = []
         new_models = []
         mdls.sort(key=lambda x: x.is_vector, reverse=True)
-        for m in mdls:
-            for g in genotypes:
-                vec_mdl = None
-                if not m.is_vector: vec_mdl = vec_strain_2_mdl[g]
-                new_model = m.updateGenotype(g, alleles, vec_mdl)
-                if 'init' in new_model.pop.inf.keys():
-                    new_model.pop.addPop(new_model.pop.getPop(), g)
-                    del new_model.pop.inf['init']
-                    del new_model.pop.rec['init']
-                new_models += [new_model]
-                if m.is_vector: vec_strain_2_mdl[g] = new_model
+        for m in mdls: # vec mdl is assumed to be first
+            gt = genotypes
+            if m.is_vector and is_hyb: gt = genotypes_dip
+            for g in gt:
+                vec_mdls = [None]
+                new_models_temp = []
+                if not m.is_vector: vec_mdls = vec_strain_2_mdl[g][:1]
+                new_models_temp = [m.updateGenotype(g, alleles, vec_mdl) for vec_mdl in vec_mdls]
+                for new_model in new_models_temp:
+                    if 'init' in new_model.pop.inf.keys():
+                        new_model.pop.addPop(new_model.pop.getPop(), g)
+                        del new_model.pop.inf['init']
+                        del new_model.pop.rec['init']
+                    new_models += [new_model]
+                    if m.is_vector:
+                        g2 = g
+                        if is_hyb: g2 = hapify(g)
+                        if g2 in vec_strain_2_mdl.keys(): vec_strain_2_mdl[g2] += [new_model]
+                        else: vec_strain_2_mdl[g2] = [new_model]
         mdls = new_models
 
     [m.setRs() for m in mdls]
@@ -66,11 +84,20 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
         else: strain_2_mdl[m.sn] += [m]
     for s in strain_2_mdl:
         s_mdls = strain_2_mdl[s]
-        vec_mdl = [sm for sm in s_mdls if sm.is_vector][0]
-        s_mdls.pop(s_mdls.index(vec_mdl))
+        vec_mdl = [sm for sm in s_mdls if sm.is_vector]
+        if len(vec_mdl):
+            vec_mdl = vec_mdl[0]
+            if not is_hyb: s_mdls.pop(s_mdls.index(vec_mdl))
+            else: continue
+        else: vec_mdl = strain_2_mdl[dipify(s)][0]
+        s_mdls_2 = []
+        for sm in s_mdls:
+            if sm not in s_mdls_2: s_mdls_2 += [sm]
+        s_mdls = s_mdls_2
         [print(f'{sm} r0: {sm.r0(vec_mdl)}') for sm in s_mdls]
     ts_i = np.array(range(int(nt)))
-    ps = np.empty(shape=(nt, len(mdls), len(mdls[0].pop.getAllPop())))
+    ps_init = np.empty(shape=(nt, len(mdls), len(mdls[0].pop.getAllPop())))
+    ps = listify(ps_init)
     pops = [m.pop for m in mdls]
     pops_check = []
     for p in list(pops):
@@ -106,8 +133,7 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
                 if rpt: mdls[i_m].trans(i_r, rpt)
                 times[4] += time.time() - tm # 2nd most expensive
         tm = time.time()
-        for i_p in range(num_pops):
-            ps[i][i_p] = pops[i_p].getAllPop()
+        for i_p in range(num_pops): ps[i][i_p] = pops[i_p].getAllPop()
         times[5] += time.time() - tm
         # All remaining measurement blocks are left over from a more complicated and inefficient time
         # Preserved in case they prove useful sometime in the future
@@ -115,7 +141,7 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
         tm = time.time()
         times[6] += time.time() - tm
         tm = time.time()
-        for indv in vec_pop.individuals: indv.genDrift(para_gens, list(vec_strain_2_mdl.values())[0].mr)
+        for indv in vec_pop.individuals: indv.genDrift(para_gens, list(vec_strain_2_mdl.values())[0][0].mr)
         times[7] += time.time() - tm
         tm = time.time()
         print(f'{int(100*i/nt)}%; vec indvs: {len(vec_pop.individuals)}', end='\r')

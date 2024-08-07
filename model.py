@@ -124,8 +124,7 @@ class SIR:
         - `vec`: The corresponding (same strain) model for the vector population. Only necessary if `param` is `itr`.
         '''
         if type(self.__dict__[param]) is dict:
-            for k in self.__dict__[param]:
-                self.__dict__[param][k] *= fac
+            for k in self.__dict__[param]: self.__dict__[param][k] *= fac
             if vec is not None: vec.__dict__[param][self.pop] *= fac
             # note for future: in a more complex use-case (i.e. more 'multi-model parameters'), it may be a good idea to
             # reconsider using the non-primitive number object idea from earlier (more general)
@@ -155,6 +154,7 @@ class SIR:
         new_model.genotype = g
         for a in alleles:
             if a.char in g:
+                # if vec is not None: print(vec)
                 if a.fav_pop == new_model.pn: new_model.mutate(a.param, 1+a.fac, vec)
                 if a.unf_pop == new_model.pn: new_model.mutate(a.param, 1/(1+a.fac), vec)
         return new_model
@@ -164,6 +164,9 @@ class SIR:
         Estimates R0 for the given model. Meant to be more a vague guideline than a hard and fast rule. Takes the corresponding (same strain)
         vector model as an input.
         '''
+        # print('---')
+        # print(f'{self}: {self.itr}')
+        # print(f'{vec_mdl}: {vec_mdl.itr}')
         return (vec_mdl.pop.tot_pop/self.pop.tot_pop)*self.itr[vec_mdl.pop]*vec_mdl.itr[self.pop]/(self.rr*vec_mdl.bd)
 
     def printParams(self):

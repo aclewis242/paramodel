@@ -86,7 +86,7 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0], [20, 1, 0]], dtype='flo
     t_max = t_scale
     para_gens = int((24/nt)/para_lsp)
     nt = float(int(nt*t_scale))
-    [p0_1, p0_2, p0_3] = [population(p0[i], pc=pc) for i in range(3)]
+    [p0_1, p0_2, p0_3] = [population(p0[i], pc=pc, i_h=is_haploid) for i in range(3)]
     m1 = SIR(p0_1, **PARAMS_1)
     m2 = SIR(p0_2, **PARAMS_2)
     m3 = SIR(p0_3, **PARAMS_3)
@@ -97,7 +97,10 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0], [20, 1, 0]], dtype='flo
     m3.itr = {p0_1: 0., p0_2: itr_h2}
     t0 = time.time()
     mdls = [m1, m2, m3]
-    ts, ps, times, pops = simShell(t_max, mdls, nt, alleles, is_haploid, para_gens, is_hyb)
+    if is_hyb:
+        for m in mdls:
+            if m.is_vector: m.pop.is_dip = True
+    ts, ps, times, pops = simShell(t_max, mdls, nt, alleles, para_gens)
     ex_tm = time.time() - t0
     times_norm = list(100*normalise(np.array(times)))
     print(f'Execution time: {ex_tm}')
@@ -105,14 +108,16 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0], [20, 1, 0]], dtype='flo
     [print(f'{i}:\t{times_norm[i]}') for i in range(len(times))]
     print(f'Extra time: {ex_tm - sum(times)}')
     [p.printDat() for p in pops]
+    # dimensions of ps: layer 1 is times, layer 2 is models at that time, layer 3 is pop #s for that model
     for i in range(len(mdls)):
         ns = [''.join(n.split('.')) for n in pops[i].getAllPopNms()]
         gens = []
         for n in ns:
             if '(' in n and ')' in n: gens += [n[n.index('(')+1:n.index(')')]]
             else: gens += [n]
-        [plt.plot(ts, ps[:,i][:,j], label=ns[j], color=str2Color(gens[j]), alpha=pop2Alpha(ns[j])) for j in range(len(ns)) if ns[j][0] != 'R']
-        plt.plot(ts, sum(ps[:,i].transpose()), label='N')
+        ps_i = np.array([k[i] for k in ps])
+        [plt.plot(ts, ps_i[:,j], label=ns[j], color=str2Color(gens[j]), alpha=pop2Alpha(ns[j])) for j in range(len(ns)) if ns[j][0] != 'R']
+        plt.plot(ts, sum(ps_i.transpose()), label='N')
         plt.title(f'{mdls[i].pn_full} population')
         plt.legend()
         plt.xlabel('Simulation time')

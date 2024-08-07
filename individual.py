@@ -10,12 +10,14 @@ class individual:
     allele_freqs = {}
     trans_ps = [[]]
     file = None
+    is_hap = False
 
-    def __init__(self, pc: int, alleles: list[str]=[], gdm=wf, tps: list[list[float]]=None):
+    def __init__(self, pc: int, alleles: list[str]=[], gdm=wf, tps: list[list[float]]=None, i_h: bool=False):
         self.pc = pc
         self.allele_freqs = {}
+        self.is_hap = i_h
         for a in alleles: self.allele_freqs[a.lower()] = pc*(a == a.lower()) # records recessive explicitly, dominant implicitly
-        if tps is None: self.trans_ps = gdm(pc)
+        if tps is None: self.trans_ps = gdm(pc, self.is_hap)
         else: self.trans_ps = tps
 
     def genDrift(self, num_gens: int=1, mut_chance: float=0.0):
@@ -26,7 +28,8 @@ class individual:
             for a in self.allele_freqs:
                 a_num = self.allele_freqs[a]
                 ps = self.trans_ps[a_num]
-                new_num = random.choices(list(range(self.pc+1)), ps)[0]
+                new_num = a_num
+                if self.is_hap: new_num = random.choices(list(range(self.pc+1)), ps)[0]
                 self.allele_freqs[a] = new_num
                 if abs(new_num - a_num) > self.pc-2: print(f'bruh moment: going from {a_num} {a} to {new_num}')
                 if random.random() <= mut_chance:
@@ -47,3 +50,11 @@ class individual:
         new_indv.file = self.file
         for a in self.allele_freqs: new_indv.allele_freqs[a] = self.allele_freqs[a]
         return new_indv
+    
+    @property
+    def is_dip(self):
+        return not self.is_hap
+    
+    @is_dip.setter
+    def is_dip(self, value: bool):
+        self.is_hap = not value

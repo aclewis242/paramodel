@@ -13,8 +13,9 @@ class population:
     is_vector = False
     indvs = []
     pc = 0
+    is_hap = False
 
-    def __init__(self, p0: list[int], pn: str='', isn: str='init', pc: int=120):
+    def __init__(self, p0: list[int], pn: str='', isn: str='init', pc: int=120, i_h: bool=False):
         '''
         Initialises the population.
 
@@ -31,6 +32,7 @@ class population:
         self.pn = pn
         self.tot_pop = sum(p0)
         self.pc = pc
+        self.is_hap = i_h
     
     def getPop(self, sn: str='init') -> list[int]:
         '''
@@ -58,16 +60,13 @@ class population:
         - `p`: The quantities to add, as a 3-element list (S, I, R).
         - `sn`: The strain to add them to.
         '''
+        sn = self.match(sn)
         self.sus += p[0]
         self.inf[sn] += p[1]
         if self.is_vector:
             if p[1] >= 0:
-                for i in range(int(p[1])): self.indvs += [individual(self.pc, sn.split('.'))]
-            else:
-                # indvs_new = self.indvs[:int(p[1])]
-                # for i in self.indvs[int(p[1]):]: del i
-                # self.indvs = indvs_new
-                self.indvs = shuffle(self.indvs[:int(p[1])])
+                for i in range(int(p[1])): self.indvs += [individual(self.pc, sn.split('.'), i_h=self.is_hap)]
+            else: self.indvs = shuffle(self.indvs[:int(p[1])])
         self.rec[sn] += p[2]
         self.tot_pop += (p[0] + p[1] + p[2])
     
@@ -86,6 +85,19 @@ class population:
         if nsn in self.inf.keys(): return
         self.inf[nsn] = 0
         self.rec[nsn] = 0
+
+    @property
+    def is_dip(self):
+        return not self.is_hap
+    
+    @is_dip.setter
+    def is_dip(self, value: bool):
+        self.is_hap = not value
+    
+    def match(self, s2m: str): # matches the given strain to the format required of this population
+        m2u = dipify
+        if self.is_hap: m2u = hapify
+        return m2u(s2m)
 
     def printDat(self):
         '''

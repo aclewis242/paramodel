@@ -35,3 +35,13 @@ def shuffle(l: list):
     order = list(range(len(l)))
     random.shuffle(order)
     return [l[i] for i in order]
+
+def hapify(g: str):
+    return '.'.join([s[0] for s in g.split('.')])
+
+def dipify(g: str):
+    return '.'.join([''.join(2*[s])[:2] for s in g.split('.')])
+
+def listify(a) -> list:
+    if type(a) is np.ndarray: return [listify(el) for el in a]
+    else: return a
