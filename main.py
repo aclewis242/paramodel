@@ -3,6 +3,7 @@ from allele import *
 from color import *
 import matplotlib.pyplot as plt
 import time
+import os
 
 ### Deprecated parameters
 STAB = {        # Parameters for stable behavior (equilibrium)
@@ -28,7 +29,7 @@ VEC = {         # Parameters for transmission vector behavior (mosquito)
     'ir': 0.,   # Infection rate between individuals. Largely obsolete for a vector-based model
     'rr': 0,    # Recovery rate
     'wi': 0.,   # Waning immunity rate
-    'mr': 1e-1,             # Mutation rate
+    'mr': 1e-2,             # Mutation rate
     'pn': 'vec',            # Short population name, used in console output & within the code
     'pn_full': 'Vector',    # Full population name, used in graph titles
     'is_vector': True,      # Whether or not the population is a disease vector
@@ -63,8 +64,9 @@ PARAMS_1 = HST1
 PARAMS_2 = VEC
 PARAMS_3 = HST2
 
-def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0], [20, 1, 0]], dtype='float64'), p_fac: float=10, nt: float=6.,
-        plot_res: bool=True, t_scale: float=200., do_allele_mod: bool=True, is_haploid: bool=True, para_lsp: float=2., pc: int=24):
+def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0], [20, 1, 0]], dtype='float64'), p_fac: float=50, nt: float=6.,
+        plot_res: bool=True, t_scale: float=500., do_allele_mod: bool=True, is_haploid: bool=True, para_lsp: float=2., pc: int=12,
+        is_hyb: bool=True):
     '''
     Run the simulation.
 
@@ -77,6 +79,7 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0], [20, 1, 0]], dtype='flo
     - `do_allele_mod`: Whether or not to use the allele-based mutation model, as a bool.
     - `is_haploid`: Whether the model is haploid (AbC) or diploid (AabbCC).
     '''
+    [os.remove(file) for file in os.listdir() if file.endswith('.dat')]
     alleles = []
     if do_allele_mod: alleles = ALLELES
     p0 *= p_fac
@@ -94,7 +97,7 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0], [20, 1, 0]], dtype='flo
     m3.itr = {p0_1: 0., p0_2: itr_h2}
     t0 = time.time()
     mdls = [m1, m2, m3]
-    ts, ps, times, pops = simShell(t_max, mdls, nt, alleles, is_haploid, para_gens)
+    ts, ps, times, pops = simShell(t_max, mdls, nt, alleles, is_haploid, para_gens, is_hyb)
     ex_tm = time.time() - t0
     times_norm = list(100*normalise(np.array(times)))
     print(f'Execution time: {ex_tm}')

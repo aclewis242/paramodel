@@ -63,8 +63,11 @@ class population:
         if self.is_vector:
             if p[1] >= 0:
                 for i in range(int(p[1])): self.indvs += [individual(self.pc, sn.split('.'))]
-            else: self.individuals = self.indvs[:int(p[1])]
-            random.shuffle(self.indvs)
+            else:
+                # indvs_new = self.indvs[:int(p[1])]
+                # for i in self.indvs[int(p[1]):]: del i
+                # self.indvs = indvs_new
+                self.indvs = shuffle(self.indvs[:int(p[1])])
         self.rec[sn] += p[2]
         self.tot_pop += (p[0] + p[1] + p[2])
     

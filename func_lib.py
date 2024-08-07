@@ -1,3 +1,4 @@
+import random
 import numpy as np
 
 def normalise(l: np.ndarray[float]):
@@ -24,3 +25,13 @@ def float2SN(f: float, p: int=2):
     else:
         pwr = np.floor(np.log10(f))
         return f'{int(f/(10**(pwr-p)))/(10**p)}e{int(pwr)}'
+
+def printMat(m: list[list]):
+    rv = '\n'.join(['\t'.join([str(int(100*i)) for i in j]) for j in m])
+    print(rv)
+    return rv
+
+def shuffle(l: list):
+    order = list(range(len(l)))
+    random.shuffle(order)
+    return [l[i] for i in order]

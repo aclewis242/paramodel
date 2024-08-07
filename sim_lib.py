@@ -2,9 +2,9 @@ from model import *
 from allele import *
 import numpy as np
 import time
-import os
 
-def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=[], is_haploid: bool=True, para_gens: int=1):
+def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=[], is_haploid: bool=True, para_gens: int=1,
+             is_hyb: bool=True):
     '''
     Manages the time iterations of the simulation.
 
@@ -82,8 +82,6 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
     num_mdls = len(mdls)
     all_Rs = np.array([0.0 for i in range(num_mdls*num_Rs)])
     vec_pop = [p for p in pops if p.is_vector][0]
-
-    [os.remove(file) for file in os.listdir() if file.endswith('.dat')]
 
     for i in ts_i:
         tm = time.time()
