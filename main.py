@@ -29,7 +29,6 @@ VEC = {         # Parameters for transmission vector behavior (mosquito)
     'ir': 0.,   # Infection rate between individuals. Largely obsolete for a vector-based model
     'rr': 0,    # Recovery rate
     'wi': 0.,   # Waning immunity rate
-    'mr': 1e-2,             # Mutation rate
     'pn': 'vec',            # Short population name, used in console output & within the code
     'pn_full': 'Vector',    # Full population name, used in graph titles
     'is_vector': True,      # Whether or not the population is a disease vector
@@ -39,7 +38,6 @@ HST1 = {
     'ir': 0.,
     'rr': .05,
     'wi': .20,
-    'mr': 1e-3,
     'pn': 'h1',
     'pn_full': 'Host 1',
 }
@@ -48,9 +46,16 @@ HST2 = {
     'ir': 0.,
     'rr': .05,
     'wi': .20,
-    'mr': 1e-3,
     'pn': 'h2',
     'pn_full': 'Host 2',
+}
+
+INDV = {
+    'pc': 12,
+    'mut_chance': 1e-2,
+    'para_lsp': 2.,
+    'is_hap': True,
+    'do_sr': True,
 }
 
 # for p_fac of 5e4, nt 2e4: epidemic params are 4e3, 1e3, 7e1 for ir, rr, wi respectively (stab/epi)
@@ -65,8 +70,7 @@ PARAMS_2 = VEC
 PARAMS_3 = HST2
 
 def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0], [20, 1, 0]], dtype='float64'), p_fac: float=50, nt: float=6.,
-        plot_res: bool=True, t_scale: float=500., do_allele_mod: bool=True, is_haploid: bool=True, para_lsp: float=2., pc: int=12,
-        is_hyb: bool=True):
+        plot_res: bool=True, t_scale: float=500., do_allele_mod: bool=True, is_hyb: bool=True,):
     '''
     Run the simulation.
 
@@ -84,9 +88,11 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0], [20, 1, 0]], dtype='flo
     if do_allele_mod: alleles = ALLELES
     p0 *= p_fac
     t_max = t_scale
-    para_gens = int((24/nt)/para_lsp)
+    para_gens = int((24/nt)/INDV['para_lsp'])
+    INDV.pop('para_lsp')
+    INDV['para_gens'] = para_gens
     nt = float(int(nt*t_scale))
-    [p0_1, p0_2, p0_3] = [population(p0[i], pc=pc, i_h=is_haploid) for i in range(3)]
+    [p0_1, p0_2, p0_3] = [population(p0[i], **INDV) for i in range(3)]
     m1 = SIR(p0_1, **PARAMS_1)
     m2 = SIR(p0_2, **PARAMS_2)
     m3 = SIR(p0_3, **PARAMS_3)
@@ -100,7 +106,7 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0], [20, 1, 0]], dtype='flo
     if is_hyb:
         for m in mdls:
             if m.is_vector: m.pop.is_dip = True
-    ts, ps, times, pops = simShell(t_max, mdls, nt, alleles, para_gens)
+    ts, ps, times, pops = simShell(t_max, mdls, nt, alleles)
     ex_tm = time.time() - t0
     times_norm = list(100*normalise(np.array(times)))
     print(f'Execution time: {ex_tm}')

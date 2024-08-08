@@ -6,16 +6,16 @@ class population:
     The class for a population.
     '''
     sus = -1
-    inf = {}
-    rec = {}
+    inf: dict[str, int] = {}
+    rec: dict[str, int] = {}
     pn = ''
     tot_pop = 0
     is_vector = False
     indvs = []
-    pc = 0
     is_hap = False
+    indv_params = {} # pc, is_hap, do_sr, mut_chance
 
-    def __init__(self, p0: list[int], pn: str='', isn: str='init', pc: int=120, i_h: bool=False):
+    def __init__(self, p0: list[int], pn: str='', isn: str='init', **kwargs):
         '''
         Initialises the population.
 
@@ -25,14 +25,14 @@ class population:
         - `isn`: The name of the initial strain
         '''
         self.sus = p0[0] + 1 # adding 1 to ensure the population is always non-zero (irrelevant in the grand scheme of things)
-        self.inf = {}
-        self.rec = {}
+        self.inf: dict[str, int] = {}
+        self.rec: dict[str, int] = {}
         self.inf[isn] = p0[1]
         self.rec[isn] = p0[2]
         self.pn = pn
         self.tot_pop = sum(p0)
-        self.pc = pc
-        self.is_hap = i_h
+        self.__dict__.update(kwargs)
+        self.indv_params = kwargs
     
     def getPop(self, sn: str='init') -> list[int]:
         '''
@@ -65,7 +65,7 @@ class population:
         self.inf[sn] += p[1]
         if self.is_vector:
             if p[1] >= 0:
-                for i in range(int(p[1])): self.indvs += [individual(self.pc, sn.split('.'), i_h=self.is_hap)]
+                for i in range(int(p[1])): self.indvs += [individual(sn.split('.'), **self.indv_params)]
             else: self.indvs = shuffle(self.indvs[:int(p[1])])
         self.rec[sn] += p[2]
         self.tot_pop += (p[0] + p[1] + p[2])

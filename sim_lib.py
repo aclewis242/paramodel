@@ -3,7 +3,7 @@ from allele import *
 import numpy as np
 import time
 
-def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=[], para_gens: int=1):
+def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=[]):
     '''
     Manages the time iterations of the simulation.
 
@@ -78,7 +78,7 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
         mdls = new_models
 
     [m.setRs() for m in mdls]
-    strain_2_mdl = {}
+    strain_2_mdl: dict[str, list[SIR]] = {}
     for m in mdls:
         if m.sn not in strain_2_mdl.keys(): strain_2_mdl[m.sn] = [m]
         else: strain_2_mdl[m.sn] += [m]
@@ -90,7 +90,7 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
             if not is_hyb: s_mdls.pop(s_mdls.index(vec_mdl))
             else: continue
         else: vec_mdl = strain_2_mdl[dipify(s)][0]
-        s_mdls_2 = []
+        s_mdls_2: list[SIR] = []
         for sm in s_mdls:
             if sm not in s_mdls_2: s_mdls_2 += [sm]
         s_mdls = s_mdls_2
@@ -141,7 +141,7 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
         tm = time.time()
         times[6] += time.time() - tm
         tm = time.time()
-        for indv in vec_pop.individuals: indv.genDrift(para_gens, list(vec_strain_2_mdl.values())[0][0].mr)
+        for indv in vec_pop.individuals: indv.simPara()
         times[7] += time.time() - tm
         tm = time.time()
         print(f'{int(100*i/nt)}%; vec indvs: {len(vec_pop.individuals)}', end='\r')

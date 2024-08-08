@@ -16,7 +16,7 @@ class SIR:
     ir = -1.0
     rr = -1.0
     wi = -1.0
-    itr = {}
+    itr: dict[population, float] = {}
     mr = 0.0
     dt = 0.0
     Rs = []
@@ -44,7 +44,7 @@ class SIR:
         self.pop = p0
         self.__dict__.update(kwargs)
         self.pop.is_vector = self.is_vector
-        if 'itr' in kwargs.keys(): self.itr = dict(kwargs['itr'])
+        # if 'itr' in kwargs.keys(): self.itr = dict(kwargs['itr'])
         self.pop.pn = self.pn
         self.pop.addStrain(self.sn)
         E1 = [1, 0, 0]  # Birth
@@ -154,7 +154,6 @@ class SIR:
         new_model.genotype = g
         for a in alleles:
             if a.char in g:
-                # if vec is not None: print(vec)
                 if a.fav_pop == new_model.pn: new_model.mutate(a.param, 1+a.fac, vec)
                 if a.unf_pop == new_model.pn: new_model.mutate(a.param, 1/(1+a.fac), vec)
         return new_model
@@ -164,9 +163,6 @@ class SIR:
         Estimates R0 for the given model. Meant to be more a vague guideline than a hard and fast rule. Takes the corresponding (same strain)
         vector model as an input.
         '''
-        # print('---')
-        # print(f'{self}: {self.itr}')
-        # print(f'{vec_mdl}: {vec_mdl.itr}')
         return (vec_mdl.pop.tot_pop/self.pop.tot_pop)*self.itr[vec_mdl.pop]*vec_mdl.itr[self.pop]/(self.rr*vec_mdl.bd)
 
     def printParams(self):

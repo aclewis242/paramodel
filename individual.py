@@ -7,37 +7,44 @@ class individual:
     The class for explicitly-modelled individuals. Note: currently haploid only!
     '''
     pc = 0
-    allele_freqs = {}
+    allele_freqs: dict[str, int] = {}
     trans_ps = [[]]
     file = None
     is_hap = False
+    do_sr = False
+    mut_chance = 0.0
+    para_gens = 1
 
-    def __init__(self, pc: int, alleles: list[str]=[], gdm=wf, tps: list[list[float]]=None, i_h: bool=False):
-        self.pc = pc
-        self.allele_freqs = {}
-        self.is_hap = i_h
-        for a in alleles: self.allele_freqs[a.lower()] = pc*(a == a.lower()) # records recessive explicitly, dominant implicitly
-        if tps is None: self.trans_ps = gdm(pc, self.is_hap)
+    def __init__(self, alleles: list[str]=[], gdm=wf, tps: list[list[float]]=None, **kwargs):
+        self.__dict__.update(kwargs)
+        self.allele_freqs: dict[str, int] = {}
+        for a in alleles: self.allele_freqs[a.lower()] = self.pc*(a == a.lower()) # records recessive explicitly, dominant implicitly
+        if tps is None: self.trans_ps = gdm(self.pc, self.is_hap)
         else: self.trans_ps = tps
 
-    def genDrift(self, num_gens: int=1, mut_chance: float=0.0):
-        for i in range(num_gens):
+    def simPara(self):
+        for i in range(self.para_gens):
             if self.file is not None:
                 self.file.write('\t\t'.join(['\t\t'.join([str(int(round(self.pc*s))) for s in self.getAlleleDist(a)])
                                              for a in self.allele_freqs])+'\n')
             for a in self.allele_freqs:
-                a_num = self.allele_freqs[a]
-                ps = self.trans_ps[a_num]
-                new_num = a_num
-                if self.is_hap: new_num = random.choices(list(range(self.pc+1)), ps)[0]
-                self.allele_freqs[a] = new_num
-                if abs(new_num - a_num) > self.pc-2: print(f'bruh moment: going from {a_num} {a} to {new_num}')
-                if random.random() <= mut_chance:
-                    self.allele_freqs[a] += random.choices([-1, 1], self.getAlleleDist(a))[0]
-                    if self.file is None and random.random() <= mut_chance/20:
-                        self.file = open(f'{int(random.random()*1e6)}.dat', 'x')
-                        [self.file.write(f'{a.lower()}\t\t{a.upper()}\n') for a in self.allele_freqs]
-                    if self.file is not None: self.file.write(f'{new_num}\t->\t{self.allele_freqs[a]}\n')
+                self.genDrift(a)
+                self.mutate(a)
+    
+    def genDrift(self, a: str):
+        a_num = self.allele_freqs[a]
+        ps = self.trans_ps[a_num]
+        new_num = a_num
+        if self.is_hap: new_num = random.choices(list(range(self.pc+1)), ps)[0]
+        self.allele_freqs[a] = new_num
+    
+    def mutate(self, a: str):
+        if random.random() <= self.mut_chance:
+            self.allele_freqs[a] += random.choices([-1, 1], self.getAlleleDist(a))[0]
+            if self.file is None and random.random() <= self.mut_chance/20:
+                self.file = open(f'{int(random.random()*1e6)}.dat', 'x')
+                [self.file.write(f'{a.lower()}\t\t{a.upper()}\n') for a in self.allele_freqs]
+            if self.file is not None: self.file.write('\tmut\t\n')
     
     def getAlleleDist(self, a: str):
         return [self.allele_freqs[a]/self.pc, 1-self.allele_freqs[a]/self.pc]
