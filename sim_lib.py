@@ -31,28 +31,8 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
     for m in mdls:
         if m.pop.is_dip and is_haploid: is_hyb = True
     if len(alleles):
-        loci = ''
-        for a in alleles:
-            if a.locus not in loci: loci += a.locus
-        num_combs = 3 - is_haploid
-        genotypes = ['' for i in range(num_combs**len(loci))]
-        genotypes_dip = ['' for i in range(3**len(loci))]
-        def genGenotypes(lc: list[str], gt: list[str], i_h: bool):
-            for l in lc:
-                for i in range(len(gt)):
-                    if i_h:
-                        if i%2 == 0: gt[i] += l.upper()
-                        if i%2 == 1: gt[i] += l.lower()
-                    else:
-                        if i%3 == 0: gt[i] += (l.upper() + l.lower())
-                        if i%3 == 1: gt[i] += 2*l.upper()
-                        if i%3 == 2: gt[i] += 2*l.lower()
-                    gt[i] += '.'
-                gt.sort()
-            gt = [g[:-1] for g in gt]
-            return gt
-        genotypes = genGenotypes(loci, genotypes, is_haploid)
-        if is_hyb: genotypes_dip = genGenotypes(loci, genotypes_dip, False)
+        genotypes = genGenotypes(alleles, is_haploid)
+        if is_hyb: genotypes_dip = genGenotypes(alleles, False)
         else: genotypes_dip = []
         new_models = []
         mdls.sort(key=lambda x: x.is_vector, reverse=True)

@@ -28,3 +28,9 @@ class allele:
         The 'ID' of the locus this allele is at. (This is the lowercase of the allele's character.)
         '''
         return self.char.lower()
+    
+    def __str__(self):
+        return self.char
+    
+    def __repr__(self):
+        return self.__str__()

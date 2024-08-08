@@ -45,3 +45,7 @@ def dipify(g: str):
 def listify(a) -> list:
     if type(a) is np.ndarray: return [listify(el) for el in a]
     else: return a
+
+def invChar(c: str):
+    if c == c.lower(): return c.upper()
+    else: return c.lower()

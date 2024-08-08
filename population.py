@@ -13,7 +13,7 @@ class population:
     is_vector = False
     indvs = []
     is_hap = False
-    indv_params = {} # pc, is_hap, do_sr, mut_chance
+    indv_params = {} # pc, is_hap, do_sr, mut_chance, alleles
 
     def __init__(self, p0: list[int], pn: str='', isn: str='init', **kwargs):
         '''
@@ -65,7 +65,7 @@ class population:
         self.inf[sn] += p[1]
         if self.is_vector:
             if p[1] >= 0:
-                for i in range(int(p[1])): self.indvs += [individual(sn.split('.'), **self.indv_params)]
+                for i in range(int(p[1])): self.indvs += [individual(gnt=sn, **self.indv_params)]
             else: self.indvs = shuffle(self.indvs[:int(p[1])])
         self.rec[sn] += p[2]
         self.tot_pop += (p[0] + p[1] + p[2])
