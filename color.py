@@ -10,8 +10,8 @@ def str2Color(s: str):
     '''
     tot_num = 3*2551*sum([ord(c)**5 for c in s])
     R = int(tot_num%255)
-    G = int((tot_num/17)%255)
-    B = int((tot_num*37)%255)
+    G = int((tot_num/173)%255)
+    B = int((tot_num*371)%255)
     if R + G + B > 2.5*255: [R, G, B] = [int(c/2) for c in [R, G, B]]
     return procHex(R, G, B)
 

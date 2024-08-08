@@ -44,7 +44,6 @@ class SIR:
         self.pop = p0
         self.__dict__.update(kwargs)
         self.pop.is_vector = self.is_vector
-        # if 'itr' in kwargs.keys(): self.itr = dict(kwargs['itr'])
         self.pop.pn = self.pn
         self.pop.addStrain(self.sn)
         E1 = [1, 0, 0]  # Birth

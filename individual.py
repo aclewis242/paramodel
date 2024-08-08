@@ -38,7 +38,7 @@ class individual:
             for a in self.alleles:
                 if self.is_hap: self.genDrift(a)
                 if self.mut_chance: self.mutate(a)
-                if self.do_sr: self.reproduce(a)
+                if self.do_sr and not i: self.reproduce(a)
     
     def genDrift(self, a_a: allele):
         if self.is_dip: return
@@ -83,7 +83,6 @@ class individual:
         return [self.allele_freqs[g]/self.pc for g in genes]
 
     def infect(self):
-        # return '.'.join([random.choices([a.lower(), a.upper()], self.getAlleleDist(a))[0] for a in self.allele_freqs])
         return '.'.join([self.getWeightedAllele(a) for a in self.allele_2_str])
     
     def rebuild(self):

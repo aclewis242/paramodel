@@ -89,6 +89,15 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
     num_mdls = len(mdls)
     all_Rs = np.array([0.0 for i in range(num_mdls*num_Rs)])
     vec_pop = [p for p in pops if p.is_vector][0]
+    for p in pops:
+        max_inf = -1
+        max_strn = ''
+        for s in p.inf:
+            if p.inf[s] > max_inf:
+                max_inf = p.inf[s]
+                max_strn = s
+        p.inf[max_strn] = 0
+        p.inf[max_strn.lower()] = max_inf
 
     for i in ts_i:
         tm = time.time()

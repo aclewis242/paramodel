@@ -52,7 +52,7 @@ HST2 = {
 
 INDV = {
     'pc': 12,
-    'mut_chance': 1e-2,
+    'mut_chance': 5e-3,
     'para_lsp': 2.,
     'is_hap': True,
     'do_sr': True,
@@ -60,8 +60,8 @@ INDV = {
 
 # for p_fac of 5e4, nt 2e4: epidemic params are 4e3, 1e3, 7e1 for ir, rr, wi respectively (stab/epi)
 
-A = allele(char='A', fav_pop='h2', unf_pop='h1', param='itr', fac=2.0)
-B = allele(char='B', fav_pop='h2', unf_pop='h1', param='itr', fac=2.0)
+A = allele(char='A', fav_pop='h1', unf_pop='h2', param='itr', fac=1.0)
+B = allele(char='B', fav_pop='h1', unf_pop='h2', param='itr', fac=1.0)
 C = allele(char='C', fav_pop='h1', unf_pop='h2', param='rr', fac=-0.6)
 ALLELES = [A, B]
 
@@ -70,7 +70,7 @@ PARAMS_2 = VEC
 PARAMS_3 = HST2
 
 def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=50, nt: float=6.,
-        plot_res: bool=True, t_scale: float=100., do_allele_mod: bool=True, is_hyb: bool=False,):
+        plot_res: bool=True, t_scale: float=120., do_allele_mod: bool=True, is_hyb: bool=False,):
     '''
     Run the simulation.
 
@@ -100,7 +100,7 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
     m1 = SIR(p0_1, **PARAMS_1)
     m2 = SIR(p0_2, **PARAMS_2)
     # m3 = SIR(p0_3, **PARAMS_3)
-    itr_h1 = 0.30 # h1 <-> vec
+    itr_h1 = 0.2 # h1 <-> vec
     itr_h2 = 0.10 # h2 <-> vec
     # m1.itr = {p0_2: itr_h1, p0_3: 0.} # the number represents the rate at which m1 infects that population
     # m2.itr = {p0_1: itr_h1, p0_3: itr_h2}
