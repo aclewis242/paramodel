@@ -133,7 +133,7 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
         for indv in vec_pop.individuals: indv.simPara()
         times[7] += time.time() - tm
         tm = time.time()
-        print(f'{int(100*i/nt)}%; vec indvs: {len(vec_pop.individuals)}', end='\r')
+        print(f'{int(100*i/nt)}%; vec indvs: {len(vec_pop.individuals)} ', end='\r')
         times[8] += time.time() - tm
         tm = time.time()
         times[9] += time.time() - tm

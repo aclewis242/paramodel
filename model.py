@@ -94,6 +94,7 @@ class SIR:
                 to_infect = {}
                 for i in range(int(rpt)):
                     indv = random.choice(self.pop.individuals)
+                    if not indv.do_mutation: [indv.mutate(a) for a in indv.alleles]
                     strn = indv.infect()
                     if strn in to_infect.keys(): to_infect[strn] += 1
                     else: to_infect[strn] = 1

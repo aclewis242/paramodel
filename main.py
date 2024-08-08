@@ -51,17 +51,19 @@ HST2 = {
 }
 
 INDV = {
-    'pc': 12,
-    'mut_chance': 5e-3,
+    'pc': 24,
+    'mut_chance': 4e-3,
     'para_lsp': 2.,
     'is_hap': True,
     'do_sr': True,
+    'do_mutation': True,
+    'mut_fac': 70,
 }
 
 # for p_fac of 5e4, nt 2e4: epidemic params are 4e3, 1e3, 7e1 for ir, rr, wi respectively (stab/epi)
 
-A = allele(char='A', fav_pop='h1', unf_pop='h2', param='itr', fac=1.0)
-B = allele(char='B', fav_pop='h1', unf_pop='h2', param='itr', fac=1.0)
+A = allele(char='A', fav_pop='h1', unf_pop='h2', param='itr', fac=0.3)
+B = allele(char='B', fav_pop='h1', unf_pop='h2', param='itr', fac=0.3)
 C = allele(char='C', fav_pop='h1', unf_pop='h2', param='rr', fac=-0.6)
 ALLELES = [A, B]
 
@@ -69,8 +71,8 @@ PARAMS_1 = HST1
 PARAMS_2 = VEC
 PARAMS_3 = HST2
 
-def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=50, nt: float=6.,
-        plot_res: bool=True, t_scale: float=120., do_allele_mod: bool=True, is_hyb: bool=False,):
+def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=150., nt: float=2.,
+        plot_res: bool=True, t_scale: float=600., do_allele_mod: bool=True, is_hyb: bool=False,):
     '''
     Run the simulation.
 
@@ -89,12 +91,12 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
     p0 *= p_fac
     t_max = t_scale
     para_gens = int((24/nt)/INDV['para_lsp'])
-    INDV.pop('para_lsp')
     INDV['para_gens'] = para_gens
     INDV['alleles'] = alleles
     nt = float(int(nt*t_scale))
     # [p0_1, p0_2, p0_3] = [population(p0[i], **INDV) for i in range(3)]
     [p0_1, p0_2] = [population(p0[i], **INDV) for i in range(2)]
+    original_is_hap = INDV['is_hap']
     if is_hyb: INDV['is_hap'] = False
     p0_2 = population(p0[1], **INDV)
     m1 = SIR(p0_1, **PARAMS_1)
@@ -122,6 +124,18 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
     print(f'Extra time: {ex_tm - sum(times)}')
     [p.printDat() for p in pops]
     # dimensions of ps: layer 1 is times, layer 2 is models at that time, layer 3 is pop #s for that model
+    settings = {}
+    settings['hap/dip'] = 'diploid'
+    if INDV['is_hap']: settings['hap/dip'] = 'haploid'
+    if is_hyb and original_is_hap: settings['hap/dip'] = 'hap./dip. hybrid'
+    settings['sr'] = 'sexual reproduction'
+    if not INDV['do_sr']: settings['sr'] = f'no {settings["sr"]}'
+    settings['imp/exp mut'] = ' mut.'
+    prefix = 'imp.'
+    if INDV['do_mutation']: prefix = 'exp.'
+    settings['imp/exp mut'] = f'{prefix}{settings["imp/exp mut"]}'
+    
+    plots = {} # title (str) : plt
     for i in range(len(mdls)):
         ns = [''.join(n.split('.')) for n in pops[i].getAllPopNms()]
         gens = []
@@ -129,16 +143,39 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
             if '(' in n and ')' in n: gens += [n[n.index('(')+1:n.index(')')]]
             else: gens += [n]
         ps_i = np.array([k[i] for k in ps])
-        [plt.plot(ts, ps_i[:,j], label=ns[j], color=str2Color(gens[j]), alpha=pop2Alpha(ns[j])) for j in range(len(ns)) if ns[j][0] != 'R']
-        plt.plot(ts, sum(ps_i.transpose()), label='N')
-        plt.title(f'{mdls[i].pn_full} population')
+        [plt.plot(ts, ps_i[:,j], label=ns[j], color=str2Color(gens[j]), alpha=pop2Alpha(ns[j])) for j in range(len(ns))
+         if (ns[j][0] != 'R') and (ns[j][0] != 'S')]
+        # plt.plot(ts, sum(ps_i.transpose()), label='N')
+        plt.title(f'{mdls[i].pn_full} population ({", ".join(list(settings.values()))})')
         plt.legend()
         plt.xlabel('Simulation time')
         plt.ylabel('Population')
         plt.savefig(f'{fn(mdls[i].pn)}.png')
+        fig = plt.gcf()
+        plots[fig.axes[0].get_title()] = fig
         if plot_res: plt.show()
         plt.close()
-    return ps
+    return plots
 
 if __name__ == '__main__':
     run()
+    # plots: dict[str, plt.Figure] = {}
+    # INDV['do_sr'] = True
+    # plots.update(run())
+    # INDV['do_sr'] = False
+    # plots.update(run())
+    # plots_new: dict[str, list[plt.Figure]] = {}
+    # for p in plots:
+    #     pop = p.split(' ')[0]
+    #     if pop in plots_new: plots_new[pop] += [plots[p]]
+    #     else: plots_new[pop] = [plots[p]]
+    # for p in plots_new:
+    #     for f in plots_new[p]:
+    #         [plt.plot(ax.lines[0].get_xdata(), ax.lines[0].get_ydata(), label=f'{ax.get_label()} ({ax.get_title()})') for ax in f.axes]
+    #         plt.title(f'Combined graph (pop {p})')
+    #         plt.legend()
+    #         plt.xlabel(f.axes[0].get_xlabel())
+    #         plt.ylabel(f.axes[0].get_ylabel())
+    #         plt.savefig(f'comb_{p}.png')
+    #         plt.show()
+    #         plt.close()

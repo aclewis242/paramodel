@@ -62,11 +62,13 @@ class population:
         '''
         sn = self.match(sn)
         self.sus += p[0]
+        if self.inf[sn] + p[1] < 0: p[1] = -self.inf[sn]
         self.inf[sn] += p[1]
         if self.is_vector:
             if p[1] >= 0:
                 for i in range(int(p[1])): self.indvs += [individual(gnt=sn, **self.indv_params)]
             else: self.indvs = shuffle(self.indvs[:int(p[1])])
+        if self.rec[sn] + p[2] < 0: p[2] = -self.rec[sn]
         self.rec[sn] += p[2]
         self.tot_pop += (p[0] + p[1] + p[2])
     

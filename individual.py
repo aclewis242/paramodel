@@ -17,12 +17,15 @@ class individual:
     do_sr = False
     mut_chance = 0.0
     para_gens = 1
+    do_mutation = False
+    mut_fac = 0
 
     def __init__(self, alleles: list[allele]=[], gnt: str='', gdm=wf, tps: list[list[float]]=None, **kwargs):
         self.__dict__.update(kwargs)
         self.allele_freqs: dict[str, int] = {}
         self.allele_2_str: dict[allele, list[str]] = {}
         self.alleles = alleles
+        if not self.do_mutation: self.mut_chance *= self.mut_fac
         for a in alleles:
             self.allele_2_str[a] = genGenotypes([a], self.is_hap)
             for a_s in self.allele_2_str[a]: self.allele_freqs[a_s] = 0
@@ -37,7 +40,7 @@ class individual:
                                              for a in self.allele_2_str])+'\n')
             for a in self.alleles:
                 if self.is_hap: self.genDrift(a)
-                if self.mut_chance: self.mutate(a)
+                if self.mut_chance and self.do_mutation: self.mutate(a)
                 if self.do_sr and not i: self.reproduce(a)
     
     def genDrift(self, a_a: allele):
@@ -56,7 +59,7 @@ class individual:
             mut_tgt = random.choice(genes)
             self.allele_freqs[mut_src] -= 1
             self.allele_freqs[mut_tgt] += 1
-            if self.file is None and random.random() <= self.mut_chance/20:
+            if self.file is None and random.random() <= self.mut_chance/(20*self.mut_fac):
                 self.file = open(f'{int(random.random()*1e6)}.dat', 'x')
                 [self.file.write(f'{a}\t') for a in self.allele_freqs]
                 self.file.write('\n')
