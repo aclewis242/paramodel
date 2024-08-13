@@ -40,8 +40,7 @@ class population:
         '''
         Returns a 3-element S, I, R list for the given strain.
         '''
-        I = self.inf[sn]
-        return [self.sus+sum(self.inf.values()), self.inf[sn], self.rec[sn]]
+        return [self.sus, self.inf[sn], self.rec[sn]]
     
     def getAllPop(self):
         '''
