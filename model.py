@@ -90,11 +90,10 @@ class SIR:
         if idx >= self.num_Es:
             pop = list(self.itr.keys())[idx-self.num_Es]
             idx = 1
-            if self.is_vector and len(self.pop.individuals):
+            if len(self.pop.individuals):
                 to_infect = {}
                 for i in range(int(rpt)):
                     indv = random.choice(self.pop.individuals)
-                    if not indv.do_mutation: [indv.mutate(a) for a in indv.alleles]
                     strn = indv.infect()
                     if strn in to_infect.keys(): to_infect[strn] += 1
                     else: to_infect[strn] = 1

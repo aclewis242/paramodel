@@ -42,8 +42,9 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
             for g in gt:
                 vec_mdls = [None]
                 new_models_temp = []
-                if not m.is_vector: vec_mdls = vec_strain_2_mdl[g][:1]
+                if not m.is_vector: vec_mdls = vec_strain_2_mdl[g]
                 new_models_temp = [m.updateGenotype(g, alleles, vec_mdl) for vec_mdl in vec_mdls]
+                new_models_temp = new_models_temp[:1]
                 for new_model in new_models_temp:
                     if 'init' in new_model.pop.inf.keys():
                         new_model.pop.addPop(new_model.pop.getPop(), g)
@@ -120,7 +121,7 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
                 tm = time.time()
                 rpt = Xs[i_m*num_Rs+i_r]
                 if rpt: mdls[i_m].trans(i_r, rpt)
-                # times[4] += time.time() - tm # 2nd most expensive
+                times[4] += time.time() - tm # 2nd most expensive
         tm = time.time()
         for i_p in range(num_pops): ps[i][i_p] = pops[i_p].getAllPop()
         times[5] += time.time() - tm
@@ -129,9 +130,10 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
 
         tm = time.time()
         times[6] += time.time() - tm
-        # tm = time.time()
-        for indv in vec_pop.individuals: times = indv.simPara(times)
-        # times[7] += time.time() - tm
+        tm = time.time()
+        for p in pops:
+            for indv in p.individuals: times = indv.simPara(times)
+        times[15] += time.time() - tm
         tm = time.time()
         print(f'{int(100*i/nt)}%; vec indvs: {len(vec_pop.individuals)} ', end='\r')
         times[8] += time.time() - tm
@@ -147,6 +149,7 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
         times[13] += time.time() - tm
         tm = time.time()
         times[14] += time.time() - tm
+    times[15] -= (sum(times[9:15]) + sum(times[6:8]))
     return ts_i*dt, ps, times, pops
 
 def adaptSim(ps: np.ndarray[float], sum_Rs: float, dt: float):

@@ -50,15 +50,25 @@ HST2 = {
     'pn_full': 'Host 2',
 }
 
-INDV = {
-    'pc': 6,
+INDV_VEC = {
+    'pc': 12,
     'mut_chance': 4e-2,
+    'para_lsp': 2.,
+    'is_hap': False,
+    'do_sr': False,
+    'do_mutation': False,
+    'do_indvs': True,
+}
+INDV_HST = {
+    'pc': 120,
+    'mut_chance': 4e-4,
     'para_lsp': 2.,
     'is_hap': True,
     'do_sr': False,
     'do_mutation': True,
-    'mut_fac': 70,
+    'do_indvs': True,
 }
+INDVS = [INDV_VEC, INDV_HST]
 
 # for p_fac of 5e4, nt 2e4: epidemic params are 4e3, 1e3, 7e1 for ir, rr, wi respectively (stab/epi)
 
@@ -72,8 +82,8 @@ PARAMS_1 = HST1
 PARAMS_2 = VEC
 PARAMS_3 = HST2
 
-def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=150., nt: float=2.,
-        plot_res: bool=True, t_scale: float=120., do_allele_mod: bool=True, is_hyb: bool=True,):
+def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=30., nt: float=2.,
+        plot_res: bool=True, t_scale: float=200., do_allele_mod: bool=True,):
     '''
     Run the simulation.
 
@@ -91,31 +101,28 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
     if do_allele_mod: alleles = ALLELES
     p0 *= p_fac
     t_max = t_scale
-    para_gens = int((24/nt)/INDV['para_lsp'])
-    INDV['para_gens'] = para_gens
-    INDV['alleles'] = alleles
+    for i in range(len(INDVS)):
+        i_params = INDVS[i]
+        para_gens = int((24/nt)/i_params['para_lsp'])
+        i_params['para_gens'] = para_gens
+        i_params['alleles'] = alleles
     nt = float(int(nt*t_scale))
     # [p0_1, p0_2, p0_3] = [population(p0[i], **INDV) for i in range(3)]
-    [p0_1, p0_2] = [population(p0[i], **INDV) for i in range(2)]
-    original_is_hap = INDV['is_hap']
-    if is_hyb: INDV['is_hap'] = False
-    p0_2 = population(p0[1], **INDV)
-    m1 = SIR(p0_1, **PARAMS_1)
-    m2 = SIR(p0_2, **PARAMS_2)
+    hosts_1 = population(p0[0], **INDV_HST)
+    vectors = population(p0[1], **INDV_VEC)
+    m1 = SIR(hosts_1, **PARAMS_1)
+    m2 = SIR(vectors, **PARAMS_2)
     # m3 = SIR(p0_3, **PARAMS_3)
     itr_h1 = 0.2 # h1 <-> vec
     itr_h2 = 0.10 # h2 <-> vec
     # m1.itr = {p0_2: itr_h1, p0_3: 0.} # the number represents the rate at which m1 infects that population
     # m2.itr = {p0_1: itr_h1, p0_3: itr_h2}
     # m3.itr = {p0_1: 0., p0_2: itr_h2}
-    m1.itr = {p0_2: itr_h1}
-    m2.itr = {p0_1: itr_h1}
+    m1.itr = {vectors: itr_h1}
+    m2.itr = {hosts_1: itr_h1}
     t0 = time.time()
     # mdls = [m1, m2, m3]
     mdls = [m1, m2]
-    if is_hyb:
-        for m in mdls:
-            if m.is_vector: m.pop.is_dip = True
     ts, ps, times, pops = simShell(t_max, mdls, nt, alleles)
     ex_tm = time.time() - t0
     times_norm = list(100*normalise(np.array(times)))
@@ -127,14 +134,13 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
     # dimensions of ps: layer 1 is times, layer 2 is models at that time, layer 3 is pop #s for that model
     settings = {}
     settings['hap/dip'] = 'diploid'
-    if INDV['is_hap']: settings['hap/dip'] = 'haploid'
-    if is_hyb and original_is_hap: settings['hap/dip'] = 'hap./dip. hybrid'
+    if INDV_HST['is_hap']: settings['hap/dip'] = 'haploid'
+    if INDV_HST['is_hap'] and not INDV_VEC['is_hap']: settings['hap/dip'] = 'hap./dip. hybrid'
     settings['sr'] = 'sexual reproduction'
-    if not INDV['do_sr']: settings['sr'] = f'no {settings["sr"]}'
-    settings['imp/exp mut'] = ' mut.'
-    prefix = 'imp.'
-    if INDV['do_mutation']: prefix = 'exp.'
-    settings['imp/exp mut'] = f'{prefix}{settings["imp/exp mut"]}'
+    if not INDV_VEC['do_sr']: settings['sr'] = f'no {settings["sr"]}'
+    settings['mut'] = 'no'
+    if INDV_HST['do_mutation']: settings['mut'] = 'host'
+    settings['mut'] += ' mutation'
     
     plots = {} # title (str) : plt
     for i in range(len(mdls)):

@@ -11,8 +11,9 @@ class population:
     pn = ''
     tot_pop = 0
     is_vector = False
-    indvs = []
+    indvs: list[individual] = []
     is_hap = False
+    do_indvs = False
     indv_params = {} # pc, is_hap, do_sr, mut_chance, alleles
 
     def __init__(self, p0: list[int], pn: str='', isn: str='init', **kwargs):
@@ -27,6 +28,7 @@ class population:
         self.sus = p0[0] + 1 # adding 1 to ensure the population is always non-zero (irrelevant in the grand scheme of things)
         self.inf: dict[str, int] = {}
         self.rec: dict[str, int] = {}
+        self.indvs: list[individual] = []
         self.inf[isn] = p0[1]
         self.rec[isn] = p0[2]
         self.pn = pn
@@ -38,7 +40,8 @@ class population:
         '''
         Returns a 3-element S, I, R list for the given strain.
         '''
-        return [self.sus, self.inf[sn], self.rec[sn]]
+        I = self.inf[sn]
+        return [self.sus+sum(self.inf.values()), self.inf[sn], self.rec[sn]]
     
     def getAllPop(self):
         '''
@@ -64,7 +67,7 @@ class population:
         self.sus += p[0]
         if self.inf[sn] + p[1] < 0: p[1] = -self.inf[sn]
         self.inf[sn] += p[1]
-        if self.is_vector:
+        if self.do_indvs:
             if p[1] >= 0:
                 for i in range(int(p[1])): self.indvs += [individual(gnt=sn, **self.indv_params)]
             else: self.indvs = shuffle(self.indvs[:int(p[1])])
