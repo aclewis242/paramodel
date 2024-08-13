@@ -51,11 +51,11 @@ HST2 = {
 }
 
 INDV = {
-    'pc': 24,
-    'mut_chance': 4e-3,
+    'pc': 6,
+    'mut_chance': 4e-2,
     'para_lsp': 2.,
     'is_hap': True,
-    'do_sr': True,
+    'do_sr': False,
     'do_mutation': True,
     'mut_fac': 70,
 }
@@ -65,14 +65,15 @@ INDV = {
 A = allele(char='A', fav_pop='h1', unf_pop='h2', param='itr', fac=0.3)
 B = allele(char='B', fav_pop='h1', unf_pop='h2', param='itr', fac=0.3)
 C = allele(char='C', fav_pop='h1', unf_pop='h2', param='rr', fac=-0.6)
-ALLELES = [A, B]
+D = allele(char='D', fav_pop='h1', unf_pop='h2', param='itr', fac=0.6)
+ALLELES = [D]
 
 PARAMS_1 = HST1
 PARAMS_2 = VEC
 PARAMS_3 = HST2
 
 def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=150., nt: float=2.,
-        plot_res: bool=True, t_scale: float=600., do_allele_mod: bool=True, is_hyb: bool=False,):
+        plot_res: bool=True, t_scale: float=120., do_allele_mod: bool=True, is_hyb: bool=True,):
     '''
     Run the simulation.
 

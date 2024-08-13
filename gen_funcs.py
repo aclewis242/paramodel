@@ -1,7 +1,7 @@
 from allele import *
 import math
 
-def wf(pc: int, i_h: bool):
+def wf(pc: int):
     tp_dim = pc + 1
     trans_ps = []
     for i in range(tp_dim):
@@ -10,7 +10,7 @@ def wf(pc: int, i_h: bool):
         trans_ps += [trans_ps_row]
     for i in range(tp_dim):
         for j in range(tp_dim):
-            trans_ps[i][j] = i_h*math.comb(pc, j)*((i/pc)**j)*(1 - i/pc)**(pc-j)
+            trans_ps[i][j] = math.comb(pc, j)*((i/pc)**j)*(1 - i/pc)**(pc-j)
     return trans_ps
 
 def genGenotypes(alleles: list[allele], is_haploid: bool):

@@ -1,4 +1,5 @@
 import random
+import sympy
 import numpy as np
 
 def normalise(l: np.ndarray[float]):
@@ -49,3 +50,6 @@ def listify(a) -> list:
 def invChar(c: str):
     if c == c.lower(): return c.upper()
     else: return c.lower()
+
+def randPNum():
+    return sympy.randprime(1000, 10000)
