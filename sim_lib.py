@@ -48,7 +48,7 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
                 new_models_temp = new_models_temp[:1]
                 for new_model in new_models_temp:
                     if 'init' in new_model.pop.inf.keys():
-                        new_model.pop.addPop(new_model.pop.getPop(), g)
+                        new_model.pop.addPop([0] + new_model.pop.getPop()[1:], g)
                         del new_model.pop.inf['init']
                         del new_model.pop.rec['init']
                     new_models += [new_model]
@@ -91,6 +91,7 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
     num_mdls = len(mdls)
     all_Rs = np.array([0.0 for i in range(num_mdls*num_Rs)])
     vec_pop = [p for p in pops if p.is_vector][0]
+    host_pop = [p for p in pops if not p.is_vector][0]
     for p in pops:
         max_inf = -1
         max_strn = ''
@@ -113,6 +114,7 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
         times[0] += time.time() - tm # a little expensive. scales poorly with simulation complexity
         tm = time.time()
         sum_Rs = sum(all_Rs)
+        old_data = host_pop.printDatStr()
         times[1] += time.time() - tm
         tm = time.time()
         if not sum_Rs: break
@@ -146,8 +148,12 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
                     if fin_gts != init_gts:
                         gts_rmv = list(set(init_gts) - set(fin_gts))
                         gts_add = list(set(fin_gts) - set(init_gts))
+                        # print(f'pre p.inf: {p.inf}')
                         for gt in gts_rmv: p.inf[gt] -= 1
                         for gt in gts_add: p.inf[gt] += 1
+                        # print(f'post p.inf: {p.inf}')
+                        for strn in p.inf:
+                            if p.inf[strn] < 0: print('concern')
                     alive += [indv]
             p.individuals = alive
         times[15] += time.time() - tm
@@ -155,6 +161,8 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
         print(f'{int(100*i/nt)}%; vec indvs: {len(vec_pop.individuals)} ', end='\r')
         times[8] += time.time() - tm
         tm = time.time()
+        # if host_pop.tot_pop > 1051:
+        
         times[9] += time.time() - tm
         tm = time.time()
         times[10] += time.time() - tm

@@ -87,7 +87,7 @@ PARAMS_2 = VEC
 PARAMS_3 = HST2
 
 def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=50., nt: float=2.,
-        plot_res: bool=True, t_scale: float=200., do_allele_mod: bool=True,):
+        plot_res: bool=True, t_scale: float=100., do_allele_mod: bool=True,):
     '''
     Run the simulation.
 

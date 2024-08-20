@@ -9,7 +9,6 @@ class population:
     inf: dict[str, int] = {}
     rec: dict[str, int] = {}
     pn = ''
-    tot_pop = 0
     is_vector = False
     indvs: list[individual] = []
     is_hap = False
@@ -35,7 +34,6 @@ class population:
         self.inf[isn] = p0[1]
         self.rec[isn] = p0[2]
         self.pn = pn
-        self.tot_pop = sum(p0) + 1
         self.__dict__.update(kwargs)
         self.indv_params = kwargs
         self.rng = np.random.default_rng()
@@ -45,8 +43,9 @@ class population:
         '''
         Returns a 3-element S, I, R list for the given strain.
         '''
-        I = self.inf[sn]
-        return [self.sus+self.do_mixed_infs*(sum(self.inf.values())-I), I, self.rec[sn]]
+        # I = self.inf[sn]
+        # return [self.sus+self.do_mixed_infs*(sum(self.inf.values())-I), I, self.rec[sn]]
+        return [self.sus, self.inf[sn], self.rec[sn]]
     
     def getAllPop(self): # q to answer: is it not 'double-counting' the susceptibles?
         '''
@@ -69,6 +68,27 @@ class population:
         - `sn`: The strain to add them to.
         '''
         sn = self.match(sn)
+        old_data = self.printDatStr()
+        old_indvs = self.indvs.copy()
+        old_sus = self.sus
+        test_add = [self.sus, self.inf[sn], self.rec[sn]]
+        neg = 0
+        for i in range(3):
+            if test_add[i] < 0:
+                print(test_add)
+                print(f'strain {sn}')
+                self.printDat()
+                exit()
+            if test_add[i] + p[i] < 0: neg = test_add[i]/abs(p[i])
+        if neg:
+            for i in range(3):
+                p[i] /= neg
+                if test_add[i] + p[i] < 0:
+                    print(test_add)
+                    print(p)
+                    print(f'strain {sn}')
+                    self.printDat()
+                    exit()
         S = int(p[0])
         I = int(p[1])
         R = int(p[2])
@@ -94,6 +114,7 @@ class population:
         - I: indvs infected with this strain. does not include individuals infected with other strains
         - R: recovered from ALL strains (i.e. strain-agnostic)
         '''
+        # if not self.is_vector and sum(p): print(f'{p}, strain {sn}')
         sus_new = self.sus
         inf_new = self.inf.copy()
         rec_new = self.rec.copy()
@@ -106,16 +127,20 @@ class population:
             for sn_i in self.inf: strain_indvs[sn_i] = self.getSusInf(sn_i, is_present=True, indvs_lst=sus_indvs)
             sus_pops_lst = [self.sus]+[(sn_i != sn)*len(strain_indvs[sn_i]) for sn_i in self.inf]
             sus_pops = np.array(sus_pops_lst)/sum(sus_pops_lst)
-        if S >= 0 or not self.do_mixed_infs: sus_new += S
-        else: # S < 0 and do_mixed_infs
-            do_shuffle = True
-            s_change, to_change = self.getChanges(-S, sus_pops)
-            sus_new, s_change = change(sus_new, -s_change)
-            for strn in to_change:
-                inf_new[strn], temp = change(inf_new[strn], -to_change[strn])
-                for ind in strain_indvs[strn][:to_change[strn]]: ind.marked_for_death = True
+        # if S >= 0 or not self.do_mixed_infs: sus_new += S
+        # else: # S < 0 and do_mixed_infs
+        #     # do_shuffle = True
+        #     # s_change, to_change = self.getChanges(-S, sus_pops)
+        #     # sus_new, s_change = change(sus_new, -s_change)
+        #     # for strn in to_change:
+        #     #     inf_new[strn], temp = change(inf_new[strn], -to_change[strn])
+        #     #     for ind in strain_indvs[strn][:to_change[strn]]: ind.marked_for_death = True
+        #     sus_new, S = change(sus_new, S)
+        sus_new += S
+        inf_new[sn] += I
+        inf_indvs = []
+        I_corr = 0
         if I > 0:
-            inf_new[sn] += I
             if self.do_indvs:
                 tba: list[individual] = []
                 if not self.do_mixed_infs: tba = self.makeIndvs(sn, I)
@@ -125,23 +150,51 @@ class population:
                     for strn in to_change:
                         indvs_to_infect = strain_indvs[strn]
                         if do_shuffle: random.shuffle(indvs_to_infect)
-                        for ind in indvs_to_infect[:to_change[strn]]: ind.infectSelf(pc_trans, sn)
+                        for ind in indvs_to_infect[:to_change[strn]]:
+                            ind.infectSelf(pc_trans, sn)
+                            # sus_new += 1
                     do_shuffle = True
                 self.indvs += tba
         elif I < 0:
-            inf_new[sn], I = change(inf_new[sn], I)
-            if self.do_mixed_infs:
-                inf_indvs = self.getSusInf(sn, is_present=True)
-                for ind in inf_indvs[:-I]: ind.marked_for_death = True
-            else:
-                self.indvs = self.indvs[:I]
-                random.shuffle(self.indvs)
-        rec_new[sn], R = change(rec_new[sn], R)
+            # if self.do_mixed_infs:
+            I_corr = 0
+            self.refresh()
+            random.shuffle(self.indvs)
+            inf_indvs = self.getSusInf(sn, is_present=True)
+            for ind in inf_indvs[:-I]:
+                if R or ind.correction():
+                    ind.marked_for_death = True
+                    other_gts = list(set(ind.getGenotypes()) - set([sn]))
+                    for gt in other_gts: inf_new[gt] -= 1
+                else: I_corr += 1
+            # inf_new[sn], I_corr = change(inf_new[sn], I_corr)
+            self.refresh()
+            inf_new[sn] += I_corr
+            # rec_new[sn] -= I_corr*bool(R)
+                # print(I)
+                # print(inf_new[sn])
+                # print('---')
+            # else:
+            #     self.indvs = self.indvs[:I]
+            #     random.shuffle(self.indvs)
+        rec_new[sn] += R
 
         self.sus = sus_new
         self.inf = inf_new.copy()
         self.rec = rec_new.copy()
-        self.tot_pop += (S + I + R)
+        self.refresh()
+        if (not self.is_vector and self.tot_pop > 1051) or len(self.indvs) < max(self.inf.values()):
+            print(f'p: {p}, sn: {sn}')
+            print('OLD:')
+            print(old_data)
+            print(f'len old indvs: {len(old_indvs)}; old sus: {old_sus}')
+            print('NEW:')
+            self.printDat()
+            print(f'len new indvs: {len(self.indvs)}; new sus: {self.sus}')
+            print(sum(self.rec.values()))
+            [print(ind.genotype_freqs) for ind in inf_indvs]
+            print(f'I_corr: {I_corr}')
+            exit()
     
     def getChanges(self, pop_num: int, weights: np.ndarray[float]):
         to_change_lst = self.rng.multinomial(pop_num, weights)
@@ -187,20 +240,36 @@ class population:
             new_indv = individual(**self.indv_params)
             new_indv.setToMix(mix)
             self.indvs += [new_indv]
+            for gnt in new_indv.getGenotypes(): self.inf[gnt] += 1
+            # self.sus, temp = change(self.sus, -1)
         else:
             indv_to_infect = random.choice(self.indvs)
+            init_gts = indv_to_infect.getGenotypes()
             indv_to_infect.infectSelfMult(mix)
+            fin_gts = indv_to_infect.getGenotypes()
+            if fin_gts != init_gts:
+                gts_rmv = list(set(init_gts) - set(fin_gts))
+                gts_add = list(set(fin_gts) - set(init_gts))
+                for gt in gts_rmv: self.inf[gt] -= 1
+                for gt in gts_add: self.inf[gt] += 1
 
+    def refresh(self):
+        self.indvs = [ind for ind in self.indvs if not ind.marked_for_death]
+        return self.indvs
+        
+    def printDatStr(self):
+        return ''.join([f'Population {self.pn} (total {self.tot_pop})\n',
+                        f'S:\t{float2SN(self.sus, p=3)}\n',
+                        f'\tI\n',
+                        '\n'.join([f'{k}:\t{float2SN(self.inf[k])}' for k in self.inf]),
+                        f'\n\tR\n',
+                        '\n'.join([f'{k}:\t{float2SN(self.rec[k])}' for k in self.rec])])
+    
     def printDat(self):
         '''
         Prints the object's information to the console.
         '''
-        print(''.join([f'Population {self.pn}\n',
-                        f'S:\t{float2SN(self.sus)}\n',
-                        f'\tI\n',
-                        '\n'.join([f'{k}:\t{float2SN(self.inf[k])}' for k in self.inf]),
-                        f'\n\tR\n',
-                        '\n'.join([f'{k}:\t{float2SN(self.rec[k])}' for k in self.rec])]))
+        print(self.printDatStr())
 
     @property
     def is_dip(self):
@@ -217,6 +286,13 @@ class population:
     @individuals.setter
     def individuals(self, value: list[individual]):
         self.indvs = value
+    
+    @property
+    def tot_pop(self):
+        I = 0
+        if self.do_indvs: I = len(self.individuals)
+        else: I = sum(self.inf.values())
+        return self.sus + I + sum(self.rec.values())
 
     def __str__(self):
         return self.pn

@@ -67,7 +67,8 @@ class SIR:
         S = float(int(S))
         I = float(int(I))
         R = float(int(R))
-        N = S + I + R
+        # N = self.pop.tot_pop
+        N = S + I + R # be cognizant of potential discrepancies between this and the above
         # print(f'N: {N}. tot_pop: {self.pop.tot_pop}')
         # note to self: make this more compatible with mixed infections
         if not N: return [0. for r in self.Rs]
@@ -103,13 +104,23 @@ class SIR:
                         # print(f'self.pop: {self.pop}, do mix: {self.pop.do_mixed_infs}')
                         # print(f'pop: {pop}, do mix: {pop.do_mixed_infs}')
                         # print('---')
-                        strn = indv.infect()
-                        if strn in to_infect.keys(): to_infect[strn] += 1
-                        else: to_infect[strn] = 1
-                    else: pop.infectMix(indv.infectMult(indv.pc_to_transmit))
+                        if indv.correction():
+                            strn = indv.infect()
+                            if strn in to_infect.keys(): to_infect[strn] += 1
+                            else: to_infect[strn] = 1
+                    elif indv.correction(): pop.infectMix(indv.infectMult(indv.pc_to_transmit))
                 for strn in to_infect:
                     addPopMult(idx, to_infect[strn], strn)
                 return self.pop.getPop(self.sn)
+        elif idx == 2:
+            random.shuffle(pop.individuals)
+            recover = 0
+            for indv in pop.individuals[:int(rpt)]: recover += indv.correction(self.sn)
+            # if self.sn == 'D':
+            #     print(rpt)
+            #     print(recover)
+            #     exit()
+            rpt = recover
         addPopMult(idx, rpt, self.sn)
         return self.pop.getPop(self.sn)
     

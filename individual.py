@@ -181,6 +181,10 @@ class individual:
         m2u = dipify
         if self.is_hap: m2u = hapify
         return m2u(s2m)
+    
+    def correction(self, sn: str=''):
+        if sn: return random.random() < self.genotype_freqs[sn]/self.pc
+        return random.random() < 1/len(self.getGenotypes())
 
     def storeData(self):
         if self.file is None and random.random() <= self.mut_chance/2:
