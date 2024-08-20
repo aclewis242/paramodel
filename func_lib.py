@@ -49,3 +49,23 @@ def listify(a) -> list:
 def invChar(c: str):
     if c == c.lower(): return c.upper()
     else: return c.lower()
+
+def dictify(ks: list, vs: list):
+    return {k: v for k, v in zip(ks, vs)}
+
+def change(n2c: int, cb: int):
+    if n2c + cb <= 0: cb = -n2c
+    return n2c+cb, cb
+
+def project(dct: dict, fac2: int):
+    pc_transmitted = sum(dct.values())
+    rem = 0.
+    dct2 = dict.fromkeys(dct, 0)
+    for strn in dct:
+        amt_raw = fac2*(dct[strn]/pc_transmitted) + rem
+        amt = int(amt_raw)
+        rem = amt_raw - amt
+        dct2[strn] = amt
+    print(f'{dct} (sum {pc_transmitted})')
+    print(f'{dct2} (sum {sum(dct2.values())})')
+    print(rem)

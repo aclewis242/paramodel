@@ -32,6 +32,7 @@ VEC = {         # Parameters for transmission vector behavior (mosquito)
     'pn': 'vec',            # Short population name, used in console output & within the code
     'pn_full': 'Vector',    # Full population name, used in graph titles
     'is_vector': True,      # Whether or not the population is a disease vector
+    'do_mixed_infs': False,
 }
 HST1 = {
     'bd': 0.,
@@ -40,6 +41,7 @@ HST1 = {
     'wi': .20,
     'pn': 'h1',
     'pn_full': 'Host 1',
+    'do_mixed_infs': False,
 }
 HST2 = {
     'bd': 0.,
@@ -58,15 +60,17 @@ INDV_VEC = {
     'do_sr': False,
     'do_mutation': False,
     'do_indvs': True,
+    'pc_to_transmit': 6,
 }
 INDV_HST = {
     'pc': 120,
-    'mut_chance': 4e-4,
+    'mut_chance': 6e-4,
     'para_lsp': 2.,
     'is_hap': True,
     'do_sr': False,
     'do_mutation': True,
     'do_indvs': True,
+    'pc_to_transmit': 60,
 }
 INDVS = [INDV_VEC, INDV_HST]
 
@@ -75,14 +79,14 @@ INDVS = [INDV_VEC, INDV_HST]
 A = allele(char='A', fav_pop='h1', unf_pop='h2', param='itr', fac=0.3)
 B = allele(char='B', fav_pop='h1', unf_pop='h2', param='itr', fac=0.3)
 C = allele(char='C', fav_pop='h1', unf_pop='h2', param='rr', fac=-0.6)
-D = allele(char='D', fav_pop='h1', unf_pop='h2', param='itr', fac=0.6)
+D = allele(char='D', fav_pop='h1', unf_pop='h2', param='itr', fac=1.0)
 ALLELES = [D]
 
 PARAMS_1 = HST1
 PARAMS_2 = VEC
 PARAMS_3 = HST2
 
-def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=30., nt: float=2.,
+def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=50., nt: float=2.,
         plot_res: bool=True, t_scale: float=200., do_allele_mod: bool=True,):
     '''
     Run the simulation.
@@ -113,7 +117,7 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
     m1 = SIR(hosts_1, **PARAMS_1)
     m2 = SIR(vectors, **PARAMS_2)
     # m3 = SIR(p0_3, **PARAMS_3)
-    itr_h1 = 0.2 # h1 <-> vec
+    itr_h1 = 0.15 # h1 <-> vec
     itr_h2 = 0.10 # h2 <-> vec
     # m1.itr = {p0_2: itr_h1, p0_3: 0.} # the number represents the rate at which m1 infects that population
     # m2.itr = {p0_1: itr_h1, p0_3: itr_h2}

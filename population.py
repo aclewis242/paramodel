@@ -15,6 +15,9 @@ class population:
     is_hap = False
     do_indvs = False
     indv_params = {} # pc, is_hap, do_sr, mut_chance, alleles
+    rng: np.random.Generator = None
+    do_mixed_infs = False
+    pc_to_transmit = 0
 
     def __init__(self, p0: list[int], pn: str='', isn: str='init', **kwargs):
         '''
@@ -32,17 +35,20 @@ class population:
         self.inf[isn] = p0[1]
         self.rec[isn] = p0[2]
         self.pn = pn
-        self.tot_pop = sum(p0)
+        self.tot_pop = sum(p0) + 1
         self.__dict__.update(kwargs)
         self.indv_params = kwargs
+        self.rng = np.random.default_rng()
+        if not self.do_indvs: self.do_mixed_infs = False
     
     def getPop(self, sn: str='init') -> list[int]:
         '''
         Returns a 3-element S, I, R list for the given strain.
         '''
-        return [self.sus, self.inf[sn], self.rec[sn]]
+        I = self.inf[sn]
+        return [self.sus+self.do_mixed_infs*(sum(self.inf.values())-I), I, self.rec[sn]]
     
-    def getAllPop(self):
+    def getAllPop(self): # q to answer: is it not 'double-counting' the susceptibles?
         '''
         Returns all population elements as a list. S is first, then all Is, then all Rs.
         '''
@@ -54,7 +60,7 @@ class population:
         '''
         return ['S'] + [f'I ({sn})' for sn in self.inf.keys()] + [f'R ({sn})' for sn in self.rec.keys()]
     
-    def addPop(self, p: list[int], sn: str='init'):
+    def addPop(self, p: list[int], sn: str='init', pc_trans: int=0):
         '''
         Adds the given population quantities.
 
@@ -63,24 +69,86 @@ class population:
         - `sn`: The strain to add them to.
         '''
         sn = self.match(sn)
-        self.sus += p[0]
-        if self.inf[sn] + p[1] < 0: p[1] = -self.inf[sn]
-        self.inf[sn] += p[1]
-        if self.do_indvs:
-            if p[1] >= 0:
-                for i in range(int(p[1])): self.indvs += [individual(gnt=sn, **self.indv_params)]
-            else: self.indvs = shuffle(self.indvs[:int(p[1])])
-        if self.rec[sn] + p[2] < 0: p[2] = -self.rec[sn]
-        self.rec[sn] += p[2]
-        self.tot_pop += (p[0] + p[1] + p[2])
+        S = int(p[0])
+        I = int(p[1])
+        R = int(p[2])
+        # if self.do_indvs: self.sus_indvs = self.getSusInf(sn)
+        # if S >= 0: self.sus += S
+        # else:
+
+        # if self.inf[sn] + I < 0: I = -self.inf[sn]
+        # self.inf[sn] += I
+        # if self.do_indvs:
+        #     if I >= 0:
+                
+        #         for i in range(int(p[1])): self.indvs += [individual(gnt=sn, **self.indv_params)]
+        #     else:
+        #         self.indvs = self.indvs[:int(I)]
+        #         random.shuffle(self.indvs)
+        # if self.rec[sn] + R < 0: R = -self.rec[sn]
+        # self.rec[sn] += R
+        # self.tot_pop += (S + I + R)
+        '''
+        how this works:
+        - S: indvs susceptible to the strain. this MAY INCLUDE individuals infected with other strains
+        - I: indvs infected with this strain. does not include individuals infected with other strains
+        - R: recovered from ALL strains (i.e. strain-agnostic)
+        '''
+        sus_new = self.sus
+        inf_new = self.inf.copy()
+        rec_new = self.rec.copy()
+        sus_indvs: list[individual] = []
+        strain_indvs: dict[str, list[individual]] = {}
+        sus_pops: np.ndarray[float]
+        do_shuffle = False
+        if self.do_mixed_infs and (S < 0 or I):
+            sus_indvs = self.getSusInf(sn)
+            for sn_i in self.inf: strain_indvs[sn_i] = self.getSusInf(sn_i, is_present=True, indvs_lst=sus_indvs)
+            sus_pops_lst = [self.sus]+[(sn_i != sn)*len(strain_indvs[sn_i]) for sn_i in self.inf]
+            sus_pops = np.array(sus_pops_lst)/sum(sus_pops_lst)
+        if S >= 0 or not self.do_mixed_infs: sus_new += S
+        else: # S < 0 and do_mixed_infs
+            do_shuffle = True
+            s_change, to_change = self.getChanges(-S, sus_pops)
+            sus_new, s_change = change(sus_new, -s_change)
+            for strn in to_change:
+                inf_new[strn], temp = change(inf_new[strn], -to_change[strn])
+                for ind in strain_indvs[strn][:to_change[strn]]: ind.marked_for_death = True
+        if I > 0:
+            inf_new[sn] += I
+            if self.do_indvs:
+                tba: list[individual] = []
+                if not self.do_mixed_infs: tba = self.makeIndvs(sn, I)
+                else: # 'mixed' in the sense of 'mixed final parasite genotypes,' not 'mixed transmission'
+                    i_change, to_change = self.getChanges(I, sus_pops)
+                    tba = self.makeIndvs(sn, i_change)
+                    for strn in to_change:
+                        indvs_to_infect = strain_indvs[strn]
+                        if do_shuffle: random.shuffle(indvs_to_infect)
+                        for ind in indvs_to_infect[:to_change[strn]]: ind.infectSelf(pc_trans, sn)
+                    do_shuffle = True
+                self.indvs += tba
+        elif I < 0:
+            inf_new[sn], I = change(inf_new[sn], I)
+            if self.do_mixed_infs:
+                inf_indvs = self.getSusInf(sn, is_present=True)
+                for ind in inf_indvs[:-I]: ind.marked_for_death = True
+            else:
+                self.indvs = self.indvs[:I]
+                random.shuffle(self.indvs)
+        rec_new[sn], R = change(rec_new[sn], R)
+
+        self.sus = sus_new
+        self.inf = inf_new.copy()
+        self.rec = rec_new.copy()
+        self.tot_pop += (S + I + R)
     
-    @property
-    def individuals(self) -> list[individual]:
-        return self.indvs
+    def getChanges(self, pop_num: int, weights: np.ndarray[float]):
+        to_change_lst = self.rng.multinomial(pop_num, weights)
+        return to_change_lst[0], dictify(self.inf.keys(), to_change_lst[1:])
     
-    @individuals.setter
-    def individuals(self, value: list[individual]):
-        self.indvs = value
+    def makeIndvs(self, sn: str, num_indvs: int):
+        return [individual(gnt=sn, **self.indv_params) for i in range(int(num_indvs))]
 
     def addStrain(self, nsn: str):
         '''
@@ -90,18 +158,38 @@ class population:
         self.inf[nsn] = 0
         self.rec[nsn] = 0
 
-    @property
-    def is_dip(self):
-        return not self.is_hap
-    
-    @is_dip.setter
-    def is_dip(self, value: bool):
-        self.is_hap = not value
-    
     def match(self, s2m: str): # matches the given strain to the format required of this population
         m2u = dipify
         if self.is_hap: m2u = hapify
         return m2u(s2m)
+    
+    def getSusInf(self, sn: str, is_present: bool=False, indvs_lst: list[individual]=[]):
+        # get list of infected individuals either with the strain (T) or susceptible to infection by the strain (F)
+        is_present -= 1
+        if not len(indvs_lst): indvs_lst = self.indvs
+        return [ind for ind in indvs_lst if bool(ind.genotype_freqs[sn])+is_present]
+    
+    def getSusInfNum(self, sn: str, is_present: bool=False, indvs_lst: list[individual]=[]):
+        rv = 0
+        if not len(indvs_lst): indvs_lst = self.indvs
+        is_present -= 1
+        for ind in indvs_lst:
+            if bool(ind.genotype_freqs[sn])+is_present: rv += 1
+        return rv
+
+    def infectMix(self, mix: dict[str, int]):
+        # known: adding infections
+        # weight according to sus & len indv. select a random one if latter, make new if former
+        # a mixed infection could potentially have all genotypes in it. it's dumb to force it to be a non-strain-present
+        # individual
+        is_a_sus = random.random() < self.sus/(self.sus + len(self.indvs))
+        if is_a_sus:
+            new_indv = individual(**self.indv_params)
+            new_indv.setToMix(mix)
+            self.indvs += [new_indv]
+        else:
+            indv_to_infect = random.choice(self.indvs)
+            indv_to_infect.infectSelfMult(mix)
 
     def printDat(self):
         '''
@@ -113,6 +201,22 @@ class population:
                         '\n'.join([f'{k}:\t{float2SN(self.inf[k])}' for k in self.inf]),
                         f'\n\tR\n',
                         '\n'.join([f'{k}:\t{float2SN(self.rec[k])}' for k in self.rec])]))
+
+    @property
+    def is_dip(self):
+        return not self.is_hap
+    
+    @is_dip.setter
+    def is_dip(self, value: bool):
+        self.is_hap = not value
+    
+    @property
+    def individuals(self) -> list[individual]:
+        return self.indvs
+    
+    @individuals.setter
+    def individuals(self, value: list[individual]):
+        self.indvs = value
 
     def __str__(self):
         return self.pn

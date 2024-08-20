@@ -39,6 +39,7 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
         for m in mdls: # vec mdl is assumed to be first
             gt = genotypes
             if m.is_vector and is_hyb: gt = genotypes_dip
+            gt.reverse() # to put 'recessive' (small) first, as it's assumed to be the 'wild' type
             for g in gt:
                 vec_mdls = [None]
                 new_models_temp = []
@@ -100,6 +101,9 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
         p.inf[max_strn] = 0
         p.inf[max_strn.lower()] = max_inf
 
+    # [print(m.__dict__) for m in mdls]
+    # exit()
+
     for i in ts_i:
         tm = time.time()
         for j in range(num_mdls):
@@ -132,7 +136,20 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
         times[6] += time.time() - tm
         tm = time.time()
         for p in pops:
-            for indv in p.individuals: times = indv.simPara(times)
+            alive: list[individual] = []
+            for indv_i in range(len(p.individuals)):
+                indv = p.individuals[indv_i]
+                if not indv.marked_for_death:
+                    init_gts = indv.getGenotypes()
+                    times = indv.simPara(times)
+                    fin_gts = indv.getGenotypes()
+                    if fin_gts != init_gts:
+                        gts_rmv = list(set(init_gts) - set(fin_gts))
+                        gts_add = list(set(fin_gts) - set(init_gts))
+                        for gt in gts_rmv: p.inf[gt] -= 1
+                        for gt in gts_add: p.inf[gt] += 1
+                    alive += [indv]
+            p.individuals = alive
         times[15] += time.time() - tm
         tm = time.time()
         print(f'{int(100*i/nt)}%; vec indvs: {len(vec_pop.individuals)} ', end='\r')
@@ -144,6 +161,7 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
         tm = time.time()
         times[11] += time.time() - tm
         tm = time.time()
+        # [print(p.__dict__) for p in pops]
         times[12] += time.time() - tm
         tm = time.time()
         times[13] += time.time() - tm

@@ -23,6 +23,7 @@ class SIR:
     Es = []
     num_Es = -1
     is_vector = False
+    do_mixed_infs = False
     
     def __init__(self, p0: population, **kwargs):
         '''
@@ -45,6 +46,7 @@ class SIR:
         self.__dict__.update(kwargs)
         self.pop.is_vector = self.is_vector
         self.pop.pn = self.pn
+        self.pop.do_mixed_infs = self.do_mixed_infs
         self.pop.addStrain(self.sn)
         E1 = [1, 0, 0]  # Birth
         E2 = [-1, 1, 0] # Infection
@@ -66,6 +68,8 @@ class SIR:
         I = float(int(I))
         R = float(int(R))
         N = S + I + R
+        # print(f'N: {N}. tot_pop: {self.pop.tot_pop}')
+        # note to self: make this more compatible with mixed infections
         if not N: return [0. for r in self.Rs]
         self.Rs = [N*self.bd,
                     self.ir*S*I/N,
@@ -90,13 +94,19 @@ class SIR:
         if idx >= self.num_Es:
             pop = list(self.itr.keys())[idx-self.num_Es]
             idx = 1
-            if len(self.pop.individuals):
+            if len(self.pop.individuals): # consider moving to a bool (do_indvs) for speed
                 to_infect = {}
                 for i in range(int(rpt)):
                     indv = random.choice(self.pop.individuals)
-                    strn = indv.infect()
-                    if strn in to_infect.keys(): to_infect[strn] += 1
-                    else: to_infect[strn] = 1
+                    # potential speed increase: run infectMult earlier, feed into normal way if all same gt
+                    if not (self.pop.do_mixed_infs and pop.do_mixed_infs) or len(indv.getGenotypes()) == 1:
+                        # print(f'self.pop: {self.pop}, do mix: {self.pop.do_mixed_infs}')
+                        # print(f'pop: {pop}, do mix: {pop.do_mixed_infs}')
+                        # print('---')
+                        strn = indv.infect()
+                        if strn in to_infect.keys(): to_infect[strn] += 1
+                        else: to_infect[strn] = 1
+                    else: pop.infectMix(indv.infectMult(indv.pc_to_transmit))
                 for strn in to_infect:
                     addPopMult(idx, to_infect[strn], strn)
                 return self.pop.getPop(self.sn)
@@ -107,10 +117,15 @@ class SIR:
         '''
         Generates a copy of this model with the given strain name.
         '''
-        new_mdl = SIR(self.pop, sn=nsn, pn=self.pn, is_vector=self.pop.is_vector)
-        new_mdl.__dict__.update(self.__dict__)
-        new_mdl.sn = nsn
+        new_mdl = SIR(self.pop, sn=nsn, **self.__dict__)
+        # new_mdl.__dict__.update(self.__dict__)
+        # new_mdl.sn = nsn
         new_mdl.itr = dict(new_mdl.itr)
+
+        # new_mdl = SIR(self.pop, sn=nsn, pn=self.pn, is_vector=self.pop.is_vector)
+        # new_mdl.__dict__.update(self.__dict__)
+        # new_mdl.sn = nsn
+        # new_mdl.itr = dict(new_mdl.itr)
         return new_mdl
     
     def mutate(self, param: str, fac: float, vec: 'SIR'=None):

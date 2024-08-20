@@ -19,17 +19,21 @@ class individual:
     do_mutation = False
     rng: np.random.Generator = None
     gene_range: list[int] = []
+    pc_to_transmit = 0
+    marked_for_death = False
 
     def __init__(self, alleles: list[allele]=[], gnt: str='', gdm=wf, tps: list[list[float]]=None, **kwargs):
         self.__dict__.update(kwargs)
         self.genotype_freqs: dict[str, int] = {}
         gnts = genGenotypes(alleles, self.is_hap)
         for g in gnts: self.genotype_freqs[g] = 0
-        self.genotype_freqs[gnt] = self.pc
+        if gnt: self.genotype_freqs[gnt] = self.pc
         if tps is None: self.trans_ps = gdm(self.num_genes)
         else: self.trans_ps = tps
         self.rng = np.random.default_rng()
         self.gene_range: list[int] = list(range(self.num_genes+1))
+        if self.pc_to_transmit > self.pc: self.pc_to_transmit = self.pc
+        self.marked_for_death = False
 
     def simPara(self, times: list):
         tba = ''
@@ -120,6 +124,13 @@ class individual:
     def getAlleleDist(self, a: allele): # deprecated
         genes = self.allele_2_str[a]
         return [self.allele_freqs[g]/self.pc for g in genes]
+    
+    def getGenotypes(self):
+        return [gt for gt in self.genotype_freqs if self.genotype_freqs[gt]]
+
+    def infectMult(self, num: int=1) -> dict[str, int]:
+        gtf_vals = np.array(list(self.genotype_freqs.values()))
+        return dictify(self.genotype_freqs.keys(), self.rng.multinomial(num, normalise(gtf_vals)))
 
     def infect(self):
         return random.choices(list(self.genotype_freqs.keys()), [gtf/self.pc for gtf in list(self.genotype_freqs.values())])[0]
@@ -135,8 +146,44 @@ class individual:
                 else: rv[locus] += count*self.genotype_freqs[g]
         return rv
     
+    def infectSelf(self, pc_num: int, strn: str):
+        if self.file is not None: self.file.write('\tinfectSelf\n')
+        # print('infectSelf')
+        if pc_num > self.pc: pc_num = self.pc
+        to_replace = self.infectMult(pc_num)
+        for stn in to_replace:
+            self.genotype_freqs[stn] -= to_replace[stn]
+            self.genotype_freqs[self.match(strn)] += to_replace[stn]
+    
+    def infectSelfMult(self, mix: dict[str, int]):
+        if self.file is not None: self.file.write('\tinfectSelfMult\n')
+        # print('infectSelfMult')
+        if sum(mix.values()) >= self.pc:
+            self.setToMix(mix)
+            return
+        for strn in mix: self.infectSelf(mix[strn], strn)
+    
+    def setToMix(self, mix: dict[str, int]):
+        if self.file is not None: self.file.write('\tsetToMix\n')
+        # print('setToMix')
+        pc_transmitted = sum(mix.values())
+        rem = 0.
+        matched = ''
+        for strn in mix:
+            matched = self.match(strn)
+            amt_raw = self.pc*(mix[strn]/pc_transmitted) + rem
+            amt = int(amt_raw)
+            rem = amt_raw - amt
+            self.genotype_freqs[matched] = amt
+        if rem > 0.999: self.genotype_freqs[matched] += 1
+
+    def match(self, s2m: str): # matches the given strain to the format required of this individual type
+        m2u = dipify
+        if self.is_hap: m2u = hapify
+        return m2u(s2m)
+
     def storeData(self):
-        if self.file is None and random.random() <= self.mut_chance/20:
+        if self.file is None and random.random() <= self.mut_chance/2:
             self.file = open(f'{int(random.random()*1e6)}.dat', 'x')
             [self.file.write(f'{gnt}\t') for gnt in self.genotype_freqs]
             self.file.write('\n')
