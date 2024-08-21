@@ -102,8 +102,10 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
                 max_strn = s
         p.inf[max_strn] = 0
         p.inf[max_strn.lower()] = max_inf
+        # p.inf[max_strn.upper()] = max_inf
+        # p.sus -= max_inf
 
-    # [print(m.__dict__) for m in mdls]
+    # [p.printDat() for p in pops]
     # exit()
 
     for i in ts_i:
@@ -161,7 +163,8 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
             p.individuals = alive
         times[15] += time.time() - tm
         tm = time.time()
-        print(f'{int(100*i/nt)}%; vec indvs: {len(vec_pop.individuals)}; host indvs: {len(host_pop.individuals)} ', end='\r')
+        print(f'{int(100*i/nt)}%; vec indvs: {len(vec_pop.individuals)}; host indvs: {len(host_pop.individuals)}; vec pop: {vec_pop.tot_pop} ',
+               end='\r')
         times[8] += time.time() - tm
         tm = time.time()
         # if host_pop.tot_pop > 1051:

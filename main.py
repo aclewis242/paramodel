@@ -58,7 +58,7 @@ INDV_VEC = {
     'para_lsp': 2.,
     'is_hap': False,
     'do_sr': False,
-    'do_mutation': False,
+    'do_mutation': True,
     'do_indvs': True,
     'pc_to_transmit': 6,
 }
