@@ -21,6 +21,7 @@ class individual:
     gene_range: list[int] = []
     pc_to_transmit = 0
     marked_for_death = False
+    store_chance = 0.0
 
     def __init__(self, alleles: list[allele]=[], gnt: str='', gdm=wf, tps: list[list[float]]=None, **kwargs):
         self.__dict__.update(kwargs)
@@ -82,6 +83,7 @@ class individual:
             if self.do_mutation: self.mutate()
             times[13] += time.time() - tm
             # reproduction placeholder
+            self.storeData()
         return times
     
     def genDrift(self, a: str):
@@ -102,7 +104,6 @@ class individual:
             mut_tgt = random.choice(pot_tgts)
             self.genotype_freqs[mut_src] -= 1
             self.genotype_freqs[mut_tgt] += 1
-            self.storeData()
             if self.file is not None: self.file.write('\tmut\n')
     
     def reproduce(self, a: allele): # (currently) deprecated
@@ -187,7 +188,7 @@ class individual:
         return random.random() < 1/len(self.getGenotypes())
 
     def storeData(self):
-        if self.file is None and random.random() <= self.mut_chance/2:
+        if self.file is None and random.random() <= self.store_chance:
             self.file = open(f'{int(random.random()*1e6)}.dat', 'x')
             [self.file.write(f'{gnt}\t') for gnt in self.genotype_freqs]
             self.file.write('\n')

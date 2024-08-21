@@ -3,7 +3,7 @@ from allele import *
 import numpy as np
 import time
 
-def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=[]):
+def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=[], weight_infs: bool=False,):
     '''
     Manages the time iterations of the simulation.
 
@@ -80,6 +80,7 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
     ts_i = np.array(range(int(nt)))
     ps_init = np.empty(shape=(nt, len(mdls), len(mdls[0].pop.getAllPop())))
     ps = listify(ps_init)
+    ps_unwgt = listify(ps)
     pops = [m.pop for m in mdls]
     pops_check = []
     for p in list(pops):
@@ -129,7 +130,9 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
                 if rpt: mdls[i_m].trans(i_r, rpt)
                 times[4] += time.time() - tm # 2nd most expensive
         tm = time.time()
-        for i_p in range(num_pops): ps[i][i_p] = pops[i_p].getAllPop()
+        for i_p in range(num_pops):
+            ps[i][i_p] = pops[i_p].getAllPop(weight=weight_infs)
+            ps_unwgt[i][i_p] = pops[i_p].getAllPop()
         times[5] += time.time() - tm
         # All remaining measurement blocks are left over from a more complicated and inefficient time
         # Preserved in case they prove useful sometime in the future
@@ -158,7 +161,7 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
             p.individuals = alive
         times[15] += time.time() - tm
         tm = time.time()
-        print(f'{int(100*i/nt)}%; vec indvs: {len(vec_pop.individuals)} ', end='\r')
+        print(f'{int(100*i/nt)}%; vec indvs: {len(vec_pop.individuals)}; host indvs: {len(host_pop.individuals)} ', end='\r')
         times[8] += time.time() - tm
         tm = time.time()
         # if host_pop.tot_pop > 1051:
@@ -176,7 +179,7 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
         tm = time.time()
         times[14] += time.time() - tm
     times[15] -= (sum(times[9:15]) + sum(times[6:8]))
-    return ts_i*dt, ps, times, pops
+    return ts_i*dt, ps, times, pops, ps_unwgt
 
 def adaptSim(ps: np.ndarray[float], sum_Rs: float, dt: float):
     '''

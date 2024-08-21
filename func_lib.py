@@ -21,7 +21,7 @@ def float2SN(f: float, p: int=2):
     - `f`: The number in question.
     - `p`: The number (int) of digits of precision (past the decimal point). For example: f=1302, p=2 -> 1.30e3.
     '''
-    if f < 1e3: return f'{f}'
+    if f < 10**(p+1): return f'{f}'
     else:
         pwr = np.floor(np.log10(f))
         return f'{int(f/(10**(pwr-p)))/(10**p)}e{int(pwr)}'
@@ -43,7 +43,7 @@ def dipify(g: str):
     return '.'.join([''.join(2*[s])[:2] for s in g.split('.')])
 
 def listify(a) -> list:
-    if type(a) is np.ndarray: return [listify(el) for el in a]
+    if (type(a) is np.ndarray) or (type(a) is list): return [listify(el) for el in a]
     else: return a
 
 def invChar(c: str):

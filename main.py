@@ -64,12 +64,12 @@ INDV_VEC = {
 }
 INDV_HST = {
     'pc': 120,
-    'mut_chance': 6e-4,
+    'mut_chance': 8e-5,
     'para_lsp': 2.,
     'is_hap': True,
     'do_sr': False,
     'do_mutation': True,
-    'do_indvs': True,
+    'do_indvs': False,
     'pc_to_transmit': 60,
 }
 INDVS = [INDV_VEC, INDV_HST]
@@ -79,15 +79,15 @@ INDVS = [INDV_VEC, INDV_HST]
 A = allele(char='A', fav_pop='h1', unf_pop='h2', param='itr', fac=0.3)
 B = allele(char='B', fav_pop='h1', unf_pop='h2', param='itr', fac=0.3)
 C = allele(char='C', fav_pop='h1', unf_pop='h2', param='rr', fac=-0.6)
-D = allele(char='D', fav_pop='h1', unf_pop='h2', param='itr', fac=1.0)
+D = allele(char='D', fav_pop='h1', unf_pop='h2', param='itr', fac=1.25)
 ALLELES = [D]
 
 PARAMS_1 = HST1
 PARAMS_2 = VEC
 PARAMS_3 = HST2
 
-def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=50., nt: float=2.,
-        plot_res: bool=True, t_scale: float=100., do_allele_mod: bool=True,):
+def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=100., nt: float=2.,
+        plot_res: bool=True, t_scale: float=200., do_allele_mod: bool=True, weight_infs: bool=True,):
     '''
     Run the simulation.
 
@@ -101,6 +101,8 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
     - `is_haploid`: Whether the model is haploid (AbC) or diploid (AabbCC).
     '''
     [os.remove(file) for file in os.listdir() if file.endswith('.dat')]
+    f = open('inf_events_raw.dat', 'x')
+    f.close()
     alleles = []
     if do_allele_mod: alleles = ALLELES
     p0 *= p_fac
@@ -110,6 +112,7 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
         para_gens = int((24/nt)/i_params['para_lsp'])
         i_params['para_gens'] = para_gens
         i_params['alleles'] = alleles
+        i_params['store_chance'] = 1e1/(p_fac*t_scale*nt*i_params['pc'])
     nt = float(int(nt*t_scale))
     # [p0_1, p0_2, p0_3] = [population(p0[i], **INDV) for i in range(3)]
     hosts_1 = population(p0[0], **INDV_HST)
@@ -127,7 +130,7 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
     t0 = time.time()
     # mdls = [m1, m2, m3]
     mdls = [m1, m2]
-    ts, ps, times, pops = simShell(t_max, mdls, nt, alleles)
+    ts, ps, times, pops, ps_unwgt = simShell(t_max, mdls, nt=nt, alleles=alleles, weight_infs=weight_infs)
     ex_tm = time.time() - t0
     times_norm = list(100*normalise(np.array(times)))
     print(f'Execution time: {ex_tm}')
@@ -145,8 +148,30 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
     settings['mut'] = 'no'
     if INDV_HST['do_mutation']: settings['mut'] = 'host'
     settings['mut'] += ' mutation'
+    f = open('inf_events.dat', 'x')
+    f_raw = open('inf_events_raw.dat', 'r')
+    inf_events = {}
+    for line in f_raw.readlines():
+        if line in inf_events: inf_events[line] += 1
+        else: inf_events[line] = 1
+    f.write(str(inf_events))
+    f.close()
+    f_raw.close()
     
     plots = {} # title (str) : plt
+    def getDims(lst: list, tab: str=''):
+        if type(lst) == list:
+            print(f'{tab}list of dim {len(lst)} containing:')
+            getDims(lst[0], f'{tab}\t')
+            if type(lst[0]) == list:
+                if len(lst[1]) != len(lst[0]):
+                    print(f'{tab}additionally:')
+                    getDims(lst[1], f'{tab}\t')
+            return
+        else:
+            print(f'{tab}{type(lst).__name__}')
+            return
+    # getDims(ps)
     for i in range(len(mdls)):
         ns = [''.join(n.split('.')) for n in pops[i].getAllPopNms()]
         gens = []
@@ -156,6 +181,9 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
         ps_i = np.array([k[i] for k in ps])
         [plt.plot(ts, ps_i[:,j], label=ns[j], color=str2Color(gens[j]), alpha=pop2Alpha(ns[j])) for j in range(len(ns))
          if (ns[j][0] != 'R') and (ns[j][0] != 'S')]
+        ps_unwgt_i = np.array([k[i] for k in ps_unwgt])
+        if weight_infs and mdls[i].pop.do_indvs: [plt.plot(ts, ps_unwgt_i[:,j], label=f'{ns[j]} (unweighted)', color=str2Color(gens[j]),
+            alpha=pop2Alpha(ns[j])/2) for j in range(len(ns)) if (ns[j][0] != 'R') and (ns[j][0] != 'S')]
         # plt.plot(ts, sum(ps_i.transpose()), label='N')
         plt.title(f'{mdls[i].pn_full} population ({", ".join(list(settings.values()))})')
         plt.legend()

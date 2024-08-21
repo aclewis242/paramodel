@@ -73,8 +73,8 @@ class SIR:
         # note to self: make this more compatible with mixed infections
         if not N: return [0. for r in self.Rs]
         self.Rs = [N*self.bd,
-                    self.ir*S*I/N,
-                    self.rr*I,
+                    self.ir*S*I/N,  # essentially moot (only interspecific transmissions happen now)
+                    self.rr*I,      # ok
                     self.bd*S,
                     self.bd*I,
                     self.bd*R,
@@ -106,13 +106,16 @@ class SIR:
                         # print('---')
                         if indv.correction():
                             strn = indv.infect()
+                            f = open('inf_events_raw.dat', 'w')
+                            f.write(f'gtfs {indv.genotype_freqs} -> {strn}\n')
+                            f.close()
                             if strn in to_infect.keys(): to_infect[strn] += 1
                             else: to_infect[strn] = 1
                     elif indv.correction(): pop.infectMix(indv.infectMult(indv.pc_to_transmit))
                 for strn in to_infect:
                     addPopMult(idx, to_infect[strn], strn)
                 return self.pop.getPop(self.sn)
-        elif idx == 2:
+        elif idx == 2 and pop.do_indvs:
             random.shuffle(pop.individuals)
             recover = 0
             for indv in pop.individuals[:int(rpt)]: recover += indv.correction(self.sn)

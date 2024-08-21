@@ -17,6 +17,7 @@ class population:
     rng: np.random.Generator = None
     do_mixed_infs = False
     pc_to_transmit = 0
+    store_chance = 0.
 
     def __init__(self, p0: list[int], pn: str='', isn: str='init', **kwargs):
         '''
@@ -47,11 +48,17 @@ class population:
         # return [self.sus+self.do_mixed_infs*(sum(self.inf.values())-I), I, self.rec[sn]]
         return [self.sus, self.inf[sn], self.rec[sn]]
     
-    def getAllPop(self): # q to answer: is it not 'double-counting' the susceptibles?
+    def getAllPop(self, weight: bool=False): # q to answer: is it not 'double-counting' the susceptibles?
         '''
         Returns all population elements as a list. S is first, then all Is, then all Rs.
         '''
-        return [self.sus] + list(self.inf.values()) + list(self.rec.values())
+        infs = self.inf
+        if weight and self.do_indvs:
+            infs = dict.fromkeys(infs, 0)
+            for ind in self.indvs:
+                for gt in ind.genotype_freqs: infs[gt] += ind.genotype_freqs[gt]/ind.pc
+            # print(f'pop {self}, infs {infs}')
+        return [self.sus] + list(infs.values()) + list(self.rec.values())
     
     def getAllPopNms(self):
         '''
@@ -82,10 +89,11 @@ class population:
             if test_add[i] + p[i] < 0: neg = test_add[i]/abs(p[i])
         if neg:
             for i in range(3):
-                p[i] /= neg
+                p[i] *= neg
                 if test_add[i] + p[i] < 0:
                     print(test_add)
                     print(p)
+                    print(neg)
                     print(f'strain {sn}')
                     self.printDat()
                     exit()
@@ -183,24 +191,25 @@ class population:
         self.inf = inf_new.copy()
         self.rec = rec_new.copy()
         self.refresh()
-        if (not self.is_vector and self.tot_pop > 1051) or len(self.indvs) < max(self.inf.values()):
-            print(f'p: {p}, sn: {sn}')
-            print('OLD:')
-            print(old_data)
-            print(f'len old indvs: {len(old_indvs)}; old sus: {old_sus}')
-            print('NEW:')
-            self.printDat()
-            print(f'len new indvs: {len(self.indvs)}; new sus: {self.sus}')
-            print(sum(self.rec.values()))
-            [print(ind.genotype_freqs) for ind in inf_indvs]
-            print(f'I_corr: {I_corr}')
-            exit()
+        # if (not self.is_vector and self.tot_pop > 1051) or len(self.indvs) < max(self.inf.values()):
+        #     print(f'p: {p}, sn: {sn}')
+        #     print('OLD:')
+        #     print(old_data)
+        #     print(f'len old indvs: {len(old_indvs)}; old sus: {old_sus}')
+        #     print('NEW:')
+        #     self.printDat()
+        #     print(f'len new indvs: {len(self.indvs)}; new sus: {self.sus}')
+        #     print(sum(self.rec.values()))
+        #     [print(ind.genotype_freqs) for ind in inf_indvs]
+        #     print(f'I_corr: {I_corr}')
+        #     exit()
     
     def getChanges(self, pop_num: int, weights: np.ndarray[float]):
         to_change_lst = self.rng.multinomial(pop_num, weights)
         return to_change_lst[0], dictify(self.inf.keys(), to_change_lst[1:])
     
     def makeIndvs(self, sn: str, num_indvs: int):
+        self.store_chance /= (1+sum(self.inf.values()))
         return [individual(gnt=sn, **self.indv_params) for i in range(int(num_indvs))]
 
     def addStrain(self, nsn: str):
