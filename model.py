@@ -48,14 +48,14 @@ class SIR:
         self.pop.pn = self.pn
         self.pop.do_mixed_infs = self.do_mixed_infs
         self.pop.addStrain(self.sn)
-        E1 = [1, 0, 0]  # Birth
+        E1 = [1, 0, 0]  # Birth (used 3 times, one for each pop type)
         E2 = [-1, 1, 0] # Infection
         E3 = [0, -1, 1] # Recovery
         E4 = [-1, 0, 0] # Death of susceptible
         E5 = [0, -1, 0] # Death of infected
         E6 = [0, 0, -1] # Death of recovered
         E7 = [1, 0, -1] # Waning immunity
-        self.Es = [E1, E2, E3, E4, E5, E6, E7]
+        self.Es = [E1, E2, E3, E4, E5, E6, E7, E1, E1, E1] # first E1 is 'legacy'
         self.num_Es = len(self.Es)
         self.setRs()
 
@@ -82,13 +82,16 @@ class SIR:
         # N_2 = self.pop.tot_pop/fac
         # print(f'pop: {self.pop}. N_2: {N_2}')
         if not N: return [0. for r in self.Rs]
-        self.Rs = [N*self.bd,
+        self.Rs = [N*self.bd*0,
                     self.ir*S*I/N,  # essentially moot (only interspecific transmissions happen now)
                     self.rr*I,      # ok
                     self.bd*S,      # tolerable (double-counted, but symmetrically)
                     self.bd*I,      # bad
                     self.bd*R,      # ok
-                    self.wi*R] + [self.itr[p2]*I*p2.sus/(N+p2.tot_pop) for p2 in self.itr] # tbd
+                    self.wi*R,
+                    self.bd*S,
+                    self.bd*I,
+                    self.bd*R] + [self.itr[p2]*I*p2.sus/(N+p2.tot_pop) for p2 in self.itr] # tbd
         return self.Rs
 
     def trans(self, idx: int, rpt: int=1):
@@ -125,20 +128,20 @@ class SIR:
                 for strn in to_infect:
                     addPopMult(idx, to_infect[strn], strn)
                 return self.pop.getPop(self.sn)
-        elif idx == 2 and pop.do_indvs:
+        elif (idx == 2 or idx == 8) and pop.do_indvs:
             random.shuffle(pop.individuals)
-            recover = 0
-            for indv in pop.individuals[:int(rpt)]: recover += indv.correction(self.sn)
+            chng = 0
+            for indv in pop.individuals[:int(rpt)]: chng += indv.correction(self.sn*(idx==2))
             # if self.sn == 'D':
             #     print(rpt)
             #     print(recover)
             #     exit()
-            rpt = recover
-        elif idx == 0 and pop.do_indvs:
-            random.shuffle(pop.individuals)
-            N = pop.sus + pop.rec[self.sn]
-            for ind in pop.individuals: N += ind.correction()
-            rpt = int(rpt*N/sum(pop.getPop(self.sn)))
+            rpt = chng
+        # elif idx == 0 and pop.do_indvs:
+        #     random.shuffle(pop.individuals)
+        #     N = pop.sus + pop.rec[self.sn]
+        #     for ind in pop.individuals: N += ind.correction()
+        #     rpt = int(rpt*N/sum(pop.getPop(self.sn)))
         addPopMult(idx, rpt, self.sn)
         return self.pop.getPop(self.sn)
     
