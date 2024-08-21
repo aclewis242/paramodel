@@ -27,45 +27,35 @@ def float2SN(f: float, p: int=2):
         return f'{int(f/(10**(pwr-p)))/(10**p)}e{int(pwr)}'
 
 def printMat(m: list[list]):
+    '''
+    Prints the given 2d matrix (usually of transition probabilities, though not necessarily) in an easier-to-read fashion.
+    '''
     rv = '\n'.join(['\t'.join([str(int(100*i)) for i in j]) for j in m])
     print(rv)
     return rv
 
-def shuffle(l: list):
-    order = list(range(len(l)))
-    random.shuffle(order)
-    return [l[i] for i in order]
-
 def hapify(g: str):
+    '''
+    Turns the given genotype into its haploid equivalent (e.g., AA.Bb.cc becomes A.B.c). Haploid genotypes are unaffected.
+    '''
     return '.'.join([s[0] for s in g.split('.')])
 
 def dipify(g: str):
+    '''
+    Turns the given genotype into its diploid equivalent (e.g., A.B.c becomes AA.BB.cc). Diploid genotypes are unaffected.
+    '''
     return '.'.join([''.join(2*[s])[:2] for s in g.split('.')])
 
 def listify(a) -> list:
+    '''
+    Produces a deep copy of type list from a given multi-dimensional list (or NumPy array). If the elements of the list are complex
+    types, then these objects will still be the same in memory (the deep copy only extends to the lists themselves).
+    '''
     if (type(a) is np.ndarray) or (type(a) is list): return [listify(el) for el in a]
     else: return a
 
-def invChar(c: str):
-    if c == c.lower(): return c.upper()
-    else: return c.lower()
-
 def dictify(ks: list, vs: list):
+    '''
+    Turns the given lists of keys and values into a dict. These should be the same length!
+    '''
     return {k: v for k, v in zip(ks, vs)}
-
-def change(n2c: int, cb: int):
-    if n2c + cb <= 0: cb = -n2c
-    return n2c+cb, cb
-
-def project(dct: dict, fac2: int):
-    pc_transmitted = sum(dct.values())
-    rem = 0.
-    dct2 = dict.fromkeys(dct, 0)
-    for strn in dct:
-        amt_raw = fac2*(dct[strn]/pc_transmitted) + rem
-        amt = int(amt_raw)
-        rem = amt_raw - amt
-        dct2[strn] = amt
-    print(f'{dct} (sum {pc_transmitted})')
-    print(f'{dct2} (sum {sum(dct2.values())})')
-    print(rem)

@@ -19,6 +19,7 @@ class SIR:
     itr: dict[population, float] = {}
     mr = 0.0
     dt = 0.0
+    bds = -1.0
     Rs = []
     Es = []
     num_Es = -1
@@ -41,6 +42,7 @@ class SIR:
         - `itr`: Interspecific transmission rates from this model to other populations (dict)
         - `mr`: Mutation rate
         - `is_vector`: Whether or not this model describes a vector population (bool)
+        - `do_mixed_infs`: Whether or not this model does mixed infections
         '''
         self.pop = p0
         self.__dict__.update(kwargs)
@@ -67,31 +69,19 @@ class SIR:
         S = float(int(S))
         I = float(int(I))
         R = float(int(R))
-        # N = self.pop.tot_pop
-        N = S + I + R # be cognizant of potential discrepancies between this and the above
-        # print(f'N: {N}. tot_pop: {self.pop.tot_pop}')
-        # note to self: make this more compatible with mixed infections
-        # I_check = I
-        # N_2 = N
-        # if self.pop.do_indvs:
-        #     I_check = 0
-        #     for ind in self.pop.individuals: I_check += ind.correction()
-        #     N_2 = S + I_check + R
-        # fac = len([i for i in self.pop.inf if self.pop.inf[i]])
-        # if not fac: fac = 1
-        # N_2 = self.pop.tot_pop/fac
-        # print(f'pop: {self.pop}. N_2: {N_2}')
+        N = S + I + R
         if not N: return [0. for r in self.Rs]
-        self.Rs = [N*self.bd*0,
-                    self.ir*S*I/N,  # essentially moot (only interspecific transmissions happen now)
-                    self.rr*I,      # ok
-                    self.bd*S,      # tolerable (double-counted, but symmetrically)
-                    self.bd*I,      # bad
-                    self.bd*R,      # ok
-                    self.wi*R,
-                    self.bd*S,
+        self.bds = self.bd/len(self.pop.inf)
+        self.Rs = [N*self.bd*0,     # 'legacy', since births are now pop-delineated (like deaths always were)
+                    self.ir*S*I/N,
+                    self.rr*I,
+                    self.bds*S,
                     self.bd*I,
-                    self.bd*R] + [self.itr[p2]*I*p2.sus/(N+p2.tot_pop) for p2 in self.itr] # tbd
+                    self.bd*R,
+                    self.wi*R,
+                    self.bds*S,
+                    self.bd*I,
+                    self.bd*R] + [self.itr[p2]*I*p2.sus/(N+p2.tot_pop) for p2 in self.itr]
         return self.Rs
 
     def trans(self, idx: int, rpt: int=1):
@@ -103,8 +93,9 @@ class SIR:
         - `rpt`: The number of times to repeat said event.
         '''
         pop = self.pop
+        pc_trans_src = self.pop.pc_to_transmit
         def addPopMult(idx, rpt, sn):
-            pop.addPop(list(map(lambda x: float(rpt)*x, self.Es[idx])), sn)
+            pop.addPop(list(map(lambda x: float(rpt)*x, self.Es[idx])), sn, pc_trans_src)
         if idx >= self.num_Es:
             pop = list(self.itr.keys())[idx-self.num_Es]
             idx = 1
@@ -114,34 +105,22 @@ class SIR:
                     indv = random.choice(self.pop.individuals)
                     # potential speed increase: run infectMult earlier, feed into normal way if all same gt
                     if not (self.pop.do_mixed_infs and pop.do_mixed_infs) or len(indv.getGenotypes()) == 1:
-                        # print(f'self.pop: {self.pop}, do mix: {self.pop.do_mixed_infs}')
-                        # print(f'pop: {pop}, do mix: {pop.do_mixed_infs}')
-                        # print('---')
-                        if indv.correction():
+                        if indv.correction(self.sn):
                             strn = indv.infect()
-                            f = open('inf_events_raw.dat', 'w')
+                            f = open('inf_events_raw.dat', 'a')
                             f.write(f'gtfs {indv.genotype_freqs} -> {strn}\n')
                             f.close()
                             if strn in to_infect.keys(): to_infect[strn] += 1
                             else: to_infect[strn] = 1
-                    elif indv.correction(): pop.infectMix(indv.infectMult(indv.pc_to_transmit))
-                for strn in to_infect:
-                    addPopMult(idx, to_infect[strn], strn)
+                    elif indv.correction(self.sn): pop.infectMix(indv.infectMult(indv.pc_to_transmit))
+                for strn in to_infect: addPopMult(idx, to_infect[strn], strn)
                 return self.pop.getPop(self.sn)
         elif (idx == 2 or idx == 8) and pop.do_indvs:
+            # note that this solution to the unbalanced inf births/deaths problem is adequate, not perfect
             random.shuffle(pop.individuals)
             chng = 0
             for indv in pop.individuals[:int(rpt)]: chng += indv.correction(self.sn*(idx==2))
-            # if self.sn == 'D':
-            #     print(rpt)
-            #     print(recover)
-            #     exit()
             rpt = chng
-        # elif idx == 0 and pop.do_indvs:
-        #     random.shuffle(pop.individuals)
-        #     N = pop.sus + pop.rec[self.sn]
-        #     for ind in pop.individuals: N += ind.correction()
-        #     rpt = int(rpt*N/sum(pop.getPop(self.sn)))
         addPopMult(idx, rpt, self.sn)
         return self.pop.getPop(self.sn)
     
@@ -150,14 +129,7 @@ class SIR:
         Generates a copy of this model with the given strain name.
         '''
         new_mdl = SIR(self.pop, sn=nsn, **self.__dict__)
-        # new_mdl.__dict__.update(self.__dict__)
-        # new_mdl.sn = nsn
         new_mdl.itr = dict(new_mdl.itr)
-
-        # new_mdl = SIR(self.pop, sn=nsn, pn=self.pn, is_vector=self.pop.is_vector)
-        # new_mdl.__dict__.update(self.__dict__)
-        # new_mdl.sn = nsn
-        # new_mdl.itr = dict(new_mdl.itr)
         return new_mdl
     
     def mutate(self, param: str, fac: float, vec: 'SIR'=None):

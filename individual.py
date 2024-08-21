@@ -24,6 +24,24 @@ class individual:
     store_chance = 0.0
 
     def __init__(self, alleles: list[allele]=[], gnt: str='', gdm=wf, tps: list[list[float]]=None, **kwargs):
+        '''
+        Initialises the individual.
+
+        ### Parameters
+        - `alleles`: The list of allele objects that the genotypes can be built from
+        - `gnt`: The starting genotype of the parasites
+        - `gdm`: The genetic drift model to use (ref. gen_funcs for options). Defaults to Wright-Fisher
+        - `tps`: The matrix of transition probabilities to use for genetic drift. Generally the same as the output of `gdm`, but
+            they can be pre-provided for the sake of speed
+        - `pc`: The number of parasites present in the individual
+        - `is_hap`: Whether or not the individual's parasites are haploid
+        - `do_sr`: Whether or not sexual reproduction occurs inside the individual
+        - `mut_chance`: The chance that a parasite will experience a mutation in an individual generation
+        - `para_gens`: The number of generations the parasites go through per time step
+        - `do_mutation`: Whether or not mutations can occur inside the individual
+        - `pc_to_transmit`: The number of parasites to transmit during a mixed infection
+        - `store_chance`: The chance that the individual's parasites' genetic makeup will be recorded in a file
+        '''
         self.__dict__.update(kwargs)
         self.genotype_freqs: dict[str, int] = {}
         gnts = genGenotypes(alleles, self.is_hap)
@@ -37,6 +55,9 @@ class individual:
         self.marked_for_death = False
 
     def simPara(self, times: list):
+        '''
+        Simulates the parasites' behavior. (`times` is for speed-recording purposes; refer to sim_lib for details.)
+        '''
         tba = ''
         for i in range(self.para_gens):
             if self.file is not None: self.file.write('\t'.join([str(self.genotype_freqs[g]) for g in self.genotype_freqs])+'\n')
@@ -86,16 +107,10 @@ class individual:
             self.storeData()
         return times
     
-    def genDrift(self, a: str):
-        # a = self.allele_2_str[a_a][0]
-        # ps = self.trans_ps[self.allele_freqs[a]]
-        # new_num = random.choices(list(range(self.pc+1)), ps)[0]
-        # self.allele_freqs[a] = new_num
-        # self.allele_freqs[invChar(a)] = self.pc - new_num
-
-        return
-    
     def mutate(self):
+        '''
+        Effects the mutations observed over a single generation.
+        '''
         num_muts = self.rng.binomial(self.pc, self.mut_chance)
         for i in range(num_muts):
             mut_src = self.infect()
@@ -106,37 +121,35 @@ class individual:
             self.genotype_freqs[mut_tgt] += 1
             if self.file is not None: self.file.write('\tmut\n')
     
-    def reproduce(self, a: allele): # (currently) deprecated
-        genes = self.allele_2_str[a]
-        new_gen: dict[str, int] = {}
-        for g in genes: new_gen[g] = 0
-        for i in range(self.pc):
-            parents = [self.getWeightedAllele(a) for i in range(2)]
-            if self.is_hap: new_gen[random.choice(parents)] += 1
-            else:
-                gene_list = [random.choice(p) for p in parents]
-                gene_list.sort()
-                new_gen[''.join(gene_list)] += 1
-        for g in new_gen: self.allele_freqs[g] = new_gen[g]
-
-    def getWeightedAllele(self, a: allele): # deprecated
-        return random.choices(self.allele_2_str[a], self.getAlleleDist(a))[0]
-    
-    def getAlleleDist(self, a: allele): # deprecated
-        genes = self.allele_2_str[a]
-        return [self.allele_freqs[g]/self.pc for g in genes]
+    def reproduce(self, a: allele):
+        '''
+        Currently deprecated; may eventually be used for sexual reproduction modelling.
+        '''
+        return
     
     def getGenotypes(self):
+        '''
+        Returns all present genotypes as a list.
+        '''
         return [gt for gt in self.genotype_freqs if self.genotype_freqs[gt]]
 
     def infectMult(self, num: int=1) -> dict[str, int]:
+        '''
+        Performs multiple infections. Returns a dict of strain to # times infected.
+        '''
         gtf_vals = np.array(list(self.genotype_freqs.values()))
         return dictify(self.genotype_freqs.keys(), self.rng.multinomial(num, normalise(gtf_vals)))
 
     def infect(self):
+        '''
+        Performs an infection.
+        '''
         return random.choices(list(self.genotype_freqs.keys()), [gtf/self.pc for gtf in list(self.genotype_freqs.values())])[0]
     
     def getAlleleFreqs(self):
+        '''
+        Gets the frequencies of each allele in the genotypes present in the individual's parasites. Used primarily for genetic drift.
+        '''
         rv: dict[str, int] = {}
         for g in self.genotype_freqs:
             genes = g.split('.')
@@ -148,8 +161,10 @@ class individual:
         return rv
     
     def infectSelf(self, pc_num: int, strn: str):
+        '''
+        Infects the individual with the given strain using the given number of parasites.
+        '''
         if self.file is not None: self.file.write('\tinfectSelf\n')
-        # print('infectSelf')
         if pc_num > self.pc: pc_num = self.pc
         to_replace = self.infectMult(pc_num)
         for stn in to_replace:
@@ -157,16 +172,20 @@ class individual:
             self.genotype_freqs[self.match(strn)] += to_replace[stn]
     
     def infectSelfMult(self, mix: dict[str, int]):
+        '''
+        Infects the individual with the given strain distribution.
+        '''
         if self.file is not None: self.file.write('\tinfectSelfMult\n')
-        # print('infectSelfMult')
         if sum(mix.values()) >= self.pc:
             self.setToMix(mix)
             return
         for strn in mix: self.infectSelf(mix[strn], strn)
     
     def setToMix(self, mix: dict[str, int]):
+        '''
+        Sets the individual's parasite distribution to the given strain distribution.
+        '''
         if self.file is not None: self.file.write('\tsetToMix\n')
-        # print('setToMix')
         pc_transmitted = sum(mix.values())
         rem = 0.
         matched = ''
@@ -178,26 +197,36 @@ class individual:
             self.genotype_freqs[matched] = amt
         if rem > 0.999: self.genotype_freqs[matched] += 1
 
-    def match(self, s2m: str): # matches the given strain to the format required of this individual type
+    def match(self, s2m: str):
+        '''
+        Matches the given strain to the format required of this individual type (i.e., haploid or diploid).
+        '''
         m2u = dipify
         if self.is_hap: m2u = hapify
         return m2u(s2m)
     
     def correction(self, sn: str=''):
+        '''
+        'Corrects' for overcounting by rolling a die, with success weighted either by the given strain's frequency or (if blank)
+        the number of strains present.
+        '''
         if sn: return random.random() < self.genotype_freqs[sn]/self.pc
         return random.random() < 1/len(self.getGenotypes())
 
     def storeData(self):
+        '''
+        Stores genotype frequency data, maybe (depends on `store_chance`).
+        '''
         if self.file is None and random.random() <= self.store_chance:
             self.file = open(f'{int(random.random()*1e6)}.dat', 'x')
             [self.file.write(f'{gnt}\t') for gnt in self.genotype_freqs]
             self.file.write('\n')
     
-    def rebuild(self): # (currently) deprecated
-        new_indv = individual(self.pc, tps=self.trans_ps)
-        new_indv.file = self.file
-        for a in self.allele_freqs: new_indv.allele_freqs[a] = self.allele_freqs[a]
-        return new_indv
+    def rebuild(self):
+        '''
+        Currently deprecated; may eventually be used for deep copying.
+        '''
+        return
     
     @property
     def is_dip(self):

@@ -12,13 +12,14 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
     - `mdls`: A list containing the models governing each population (initialised with parameters & populations).
     - `nt`: The number of time steps to use, as a 'float' (e.g. 2e5 - integer in floating-point form).
     - `alleles`: The list of all possible alleles (allele objects). Irrelevant if not using the allele model.
-    - `is_haploid`: Whether the model is haploid or diploid (bool).
+    - `weight_infs`: Whether or not to weight infected data according to individuals' genotype frequencies.
 
     ### Returns
     - `ts`: A NumPy array of the times visited by the simulation (not equispaced nor integer).
     - `ps`: A NumPy array that contains the populations (flattened) at each time. Rows index population, columns index time.
     - `times`: An array containing the computation times of the various components of the method.
     - `pops`: A list of all population objects.
+    - `ps_unwgt`: Like `ps`, but with unweighted infected information.
     '''
     dt = tmax/(nt - 1)
     nt = int(nt)
@@ -102,11 +103,6 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
                 max_strn = s
         p.inf[max_strn] = 0
         p.inf[max_strn.lower()] = max_inf
-        # p.inf[max_strn.upper()] = max_inf
-        # p.sus -= max_inf
-
-    # [p.printDat() for p in pops]
-    # exit()
 
     for i in ts_i:
         tm = time.time()
@@ -117,7 +113,6 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
         times[0] += time.time() - tm # a little expensive. scales poorly with simulation complexity
         tm = time.time()
         sum_Rs = sum(all_Rs)
-        old_data = host_pop.printDatStr()
         times[1] += time.time() - tm
         tm = time.time()
         if not sum_Rs: break
@@ -138,7 +133,6 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
         times[5] += time.time() - tm
         # All remaining measurement blocks are left over from a more complicated and inefficient time
         # Preserved in case they prove useful sometime in the future
-
         tm = time.time()
         times[6] += time.time() - tm
         tm = time.time()
@@ -153,10 +147,8 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
                     if fin_gts != init_gts:
                         gts_rmv = list(set(init_gts) - set(fin_gts))
                         gts_add = list(set(fin_gts) - set(init_gts))
-                        # print(f'pre p.inf: {p.inf}')
                         for gt in gts_rmv: p.inf[gt] -= 1
                         for gt in gts_add: p.inf[gt] += 1
-                        # print(f'post p.inf: {p.inf}')
                         for strn in p.inf:
                             if p.inf[strn] < 0: print('concern')
                     alive += [indv]
@@ -167,15 +159,12 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
                end='\r')
         times[8] += time.time() - tm
         tm = time.time()
-        # if host_pop.tot_pop > 1051:
-        
         times[9] += time.time() - tm
         tm = time.time()
         times[10] += time.time() - tm
         tm = time.time()
         times[11] += time.time() - tm
         tm = time.time()
-        # [print(p.__dict__) for p in pops]
         times[12] += time.time() - tm
         tm = time.time()
         times[13] += time.time() - tm

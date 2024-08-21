@@ -32,7 +32,7 @@ VEC = {         # Parameters for transmission vector behavior (mosquito)
     'pn': 'vec',            # Short population name, used in console output & within the code
     'pn_full': 'Vector',    # Full population name, used in graph titles
     'is_vector': True,      # Whether or not the population is a disease vector
-    'do_mixed_infs': False,
+    'do_mixed_infs': True,
 }
 HST1 = {
     'bd': 0.,
@@ -41,7 +41,7 @@ HST1 = {
     'wi': .20,
     'pn': 'h1',
     'pn_full': 'Host 1',
-    'do_mixed_infs': False,
+    'do_mixed_infs': True,
 }
 HST2 = {
     'bd': 0.,
@@ -54,22 +54,22 @@ HST2 = {
 
 INDV_VEC = {
     'pc': 12,
-    'mut_chance': 4e-2,
+    'mut_chance': 4e-3,
     'para_lsp': 2.,
     'is_hap': False,
     'do_sr': False,
-    'do_mutation': True,
+    'do_mutation': False,
     'do_indvs': True,
-    'pc_to_transmit': 6,
+    'pc_to_transmit': 10,
 }
 INDV_HST = {
     'pc': 120,
-    'mut_chance': 8e-5,
+    'mut_chance': 8e-4,
     'para_lsp': 2.,
     'is_hap': True,
     'do_sr': False,
     'do_mutation': True,
-    'do_indvs': False,
+    'do_indvs': True,
     'pc_to_transmit': 60,
 }
 INDVS = [INDV_VEC, INDV_HST]
@@ -87,7 +87,7 @@ PARAMS_2 = VEC
 PARAMS_3 = HST2
 
 def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=100., nt: float=2.,
-        plot_res: bool=True, t_scale: float=200., do_allele_mod: bool=True, weight_infs: bool=True,):
+        plot_res: bool=True, t_scale: float=250., do_allele_mod: bool=True, weight_infs: bool=True,):
     '''
     Run the simulation.
 
@@ -98,10 +98,13 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
     - `plot_res`: Whether or not to display the results' graph, as a bool.
     - `t_scale`: The number of days to run the simulation for.
     - `do_allele_mod`: Whether or not to use the allele-based mutation model, as a bool.
-    - `is_haploid`: Whether the model is haploid (AbC) or diploid (AabbCC).
+    - `weight_infs`: Whether or not to display 'weighted' data for infections (weighted according to the strains' relative
+        genotype frequencies).
     '''
     [os.remove(file) for file in os.listdir() if file.endswith('.dat')]
     f = open('inf_events_raw.dat', 'x')
+    f.close()
+    f = open('last_event.dat', 'x')
     f.close()
     alleles = []
     if do_allele_mod: alleles = ALLELES
@@ -112,7 +115,7 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
         para_gens = int((24/nt)/i_params['para_lsp'])
         i_params['para_gens'] = para_gens
         i_params['alleles'] = alleles
-        i_params['store_chance'] = 1e1/(p_fac*t_scale*nt*i_params['pc'])
+        i_params['store_chance'] = 5e1/(p_fac*t_scale*nt*i_params['pc'])
     nt = float(int(nt*t_scale))
     # [p0_1, p0_2, p0_3] = [population(p0[i], **INDV) for i in range(3)]
     hosts_1 = population(p0[0], **INDV_HST)
@@ -133,7 +136,7 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
     ts, ps, times, pops, ps_unwgt = simShell(t_max, mdls, nt=nt, alleles=alleles, weight_infs=weight_infs)
     ex_tm = time.time() - t0
     times_norm = list(100*normalise(np.array(times)))
-    print(f'Execution time: {ex_tm}')
+    print(f'Execution time: {ex_tm}\t\t')
     print('Breakdown:')
     [print(f'{i}:\t{times_norm[i]}') for i in range(len(times))]
     print(f'Extra time: {ex_tm - sum(times)}')
@@ -152,13 +155,13 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
     f_raw = open('inf_events_raw.dat', 'r')
     inf_events = {}
     for line in f_raw.readlines():
+        line = line[:-1]
         if line in inf_events: inf_events[line] += 1
         else: inf_events[line] = 1
-    f.write(str(inf_events))
+    [f.write(f'{i_e}: {inf_events[i_e]}\n') for i_e in inf_events]
     f.close()
     f_raw.close()
     
-    plots = {} # title (str) : plt
     def getDims(lst: list, tab: str=''):
         if type(lst) == list:
             print(f'{tab}list of dim {len(lst)} containing:')
@@ -171,50 +174,26 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
         else:
             print(f'{tab}{type(lst).__name__}')
             return
-    # getDims(ps)
     for i in range(len(mdls)):
         ns = [''.join(n.split('.')) for n in pops[i].getAllPopNms()]
         gens = []
         for n in ns:
             if '(' in n and ')' in n: gens += [n[n.index('(')+1:n.index(')')]]
             else: gens += [n]
+        ps_unwgt_i = np.array([k[i] for k in ps_unwgt])
+        if weight_infs and mdls[i].pop.do_indvs: [plt.plot(ts, ps_unwgt_i[:,j], label=f'{ns[j]} (unweighted)', color=str2Color(gens[j]),
+            alpha=pop2Alpha(ns[j])/4) for j in range(len(ns)) if (ns[j][0] != 'R') and (ns[j][0] != 'S')]
         ps_i = np.array([k[i] for k in ps])
         [plt.plot(ts, ps_i[:,j], label=ns[j], color=str2Color(gens[j]), alpha=pop2Alpha(ns[j])) for j in range(len(ns))
          if (ns[j][0] != 'R') and (ns[j][0] != 'S')]
-        ps_unwgt_i = np.array([k[i] for k in ps_unwgt])
-        if weight_infs and mdls[i].pop.do_indvs: [plt.plot(ts, ps_unwgt_i[:,j], label=f'{ns[j]} (unweighted)', color=str2Color(gens[j]),
-            alpha=pop2Alpha(ns[j])/2) for j in range(len(ns)) if (ns[j][0] != 'R') and (ns[j][0] != 'S')]
         # plt.plot(ts, sum(ps_i.transpose()), label='N')
         plt.title(f'{mdls[i].pn_full} population ({", ".join(list(settings.values()))})')
         plt.legend()
         plt.xlabel('Simulation time')
         plt.ylabel('Population')
         plt.savefig(f'{fn(mdls[i].pn)}.png')
-        fig = plt.gcf()
-        plots[fig.axes[0].get_title()] = fig
         if plot_res: plt.show()
         plt.close()
-    return plots
 
 if __name__ == '__main__':
     run()
-    # plots: dict[str, plt.Figure] = {}
-    # INDV['do_sr'] = True
-    # plots.update(run())
-    # INDV['do_sr'] = False
-    # plots.update(run())
-    # plots_new: dict[str, list[plt.Figure]] = {}
-    # for p in plots:
-    #     pop = p.split(' ')[0]
-    #     if pop in plots_new: plots_new[pop] += [plots[p]]
-    #     else: plots_new[pop] = [plots[p]]
-    # for p in plots_new:
-    #     for f in plots_new[p]:
-    #         [plt.plot(ax.lines[0].get_xdata(), ax.lines[0].get_ydata(), label=f'{ax.get_label()} ({ax.get_title()})') for ax in f.axes]
-    #         plt.title(f'Combined graph (pop {p})')
-    #         plt.legend()
-    #         plt.xlabel(f.axes[0].get_xlabel())
-    #         plt.ylabel(f.axes[0].get_ylabel())
-    #         plt.savefig(f'comb_{p}.png')
-    #         plt.show()
-    #         plt.close()

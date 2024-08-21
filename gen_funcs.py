@@ -2,6 +2,9 @@ from allele import *
 import math
 
 def wf(pc: int):
+    '''
+    Produces the Wright-Fisher genetic drift transmission matrix for the given # of alleles.
+    '''
     tp_dim = pc + 1
     trans_ps = []
     for i in range(tp_dim):
@@ -14,6 +17,13 @@ def wf(pc: int):
     return trans_ps
 
 def genGenotypes(alleles: list[allele], is_haploid: bool):
+    '''
+    Generates all possible genotypes.
+
+    ### Parameters
+    - `alleles`: The list of allele objects to generate the genotypes from.
+    - `is_haploid`: Whether or not the genotypes should be haploid.
+    '''
     loci = ''
     for a in alleles:
         if a.locus not in loci: loci += a.locus
