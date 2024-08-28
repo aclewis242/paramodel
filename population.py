@@ -19,7 +19,7 @@ class population:
     do_mixed_infs = False
     pc_to_transmit = 0
     store_chance = 0.
-    gnt_sel_bias: dict[str, float] = {}
+    all_sel_bias: dict[str, float] = {}
     sel_bias_lst: dict[str, list[float]] = {}
     do_sel_bias = True
 
@@ -47,7 +47,7 @@ class population:
         self.indv_params = kwargs
         self.rng = np.random.default_rng()
         if not self.do_indvs: self.do_mixed_infs = False
-        self.gnt_sel_bias: dict[str, float] = {}
+        self.all_sel_bias: dict[str, float] = {}
         self.sel_bias_lst: dict[str, list[float]] = {}
     
     def getPop(self, sn: str='init') -> list[int]:
@@ -249,14 +249,18 @@ class population:
                 for gt in gts_add: self.inf[gt] += 1
 
     def updateSelBiases(self):
-        if not self.do_sel_bias: return
-        if self.is_vector: self.gnt_sel_bias = {sn: stats.mean(self.sel_bias_lst[sn]) for sn in self.sel_bias_lst}
-        gsb_pre_parse = {sn: self.gnt_sel_bias[sn]/sum(self.gnt_sel_bias.values()) for sn in self.gnt_sel_bias}
-        self.gnt_sel_bias: dict[str, float] = {}
-        for sn in gsb_pre_parse:
-            if sn == sn.upper(): self.gnt_sel_bias[sn] = gsb_pre_parse[sn]/(gsb_pre_parse[sn] + gsb_pre_parse[sn.lower()])
-        for ind in self.indvs: ind.gnt_sel_bias = self.gnt_sel_bias.copy()
-        self.indv_params['gnt_sel_bias'] = self.gnt_sel_bias
+        if self.is_vector: self.all_sel_bias = {sn: stats.mean(self.sel_bias_lst[sn]) for sn in self.sel_bias_lst}
+        asb_pre_parse = {sn: self.all_sel_bias[sn]/sum(self.all_sel_bias.values()) for sn in self.all_sel_bias}
+        self.all_sel_bias: dict[str, float] = {}
+        for sn in asb_pre_parse:
+            if sn == sn.upper(): self.all_sel_bias[sn] = asb_pre_parse[sn]/(asb_pre_parse[sn] + asb_pre_parse[sn.lower()])
+        # print(self.do_sel_bias)
+        if not self.do_sel_bias:
+            for sn in self.all_sel_bias: self.all_sel_bias[sn] = 0.5
+        for ind in self.indvs: ind.all_sel_bias = self.all_sel_bias.copy()
+        self.indv_params['all_sel_bias'] = self.all_sel_bias
+        # print(f'{self}: {self.indv_params}')
+        # [print(ind.all_sel_bias) for ind in self.makeIndvs('DD', 1)]
 
     def refresh(self):
         '''

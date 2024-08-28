@@ -42,3 +42,9 @@ def genGenotypes(alleles: list[allele], is_haploid: bool):
         gt.sort()
     gt = [g[:-1] for g in gt]
     return gt
+
+def genAlleles(al: str):
+    is_haploid = len(al) == 1
+    al = al[0]
+    if is_haploid: return [al.lower(), al.upper()]
+    else: return [2*al.lower(), (al.upper() + al.lower()), 2*al.upper()]

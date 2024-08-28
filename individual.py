@@ -4,6 +4,8 @@ from allele import *
 import random
 import time
 
+import matplotlib.pyplot as plt # temp
+
 class individual:
     '''
     The class for explicitly-modelled individuals.
@@ -24,7 +26,8 @@ class individual:
     store_chance = 0.0
     is_new_inf = True
     num_alleles = -1
-    gnt_sel_bias: dict[str, float] = {}
+    all_sel_bias: dict[str, float] = {}
+    bias_strength: 1.
 
     def __init__(self, alleles: list[allele]=[], gnt: str='', gdm=wf, tps: list[list[float]]=None, **kwargs):
         '''
@@ -48,10 +51,8 @@ class individual:
         self.__dict__.update(kwargs)
         self.genotype_freqs: dict[str, int] = {}
         self.num_alleles = len(alleles)
-        self.gnt_sel_bias: dict[str, float] = {}
         gnts = genGenotypes(alleles, self.is_hap)
         for g in gnts: self.genotype_freqs[g] = 0
-        for a in alleles: self.gnt_sel_bias[a.char] = 0.5
         if gnt: self.genotype_freqs[gnt] = self.pc
         if tps is None: self.trans_ps = gdm(self.num_genes)
         else: self.trans_ps = tps
@@ -66,6 +67,7 @@ class individual:
         Simulates the parasites' behavior. (`times` is for speed-recording purposes; refer to sim_lib for details.)
         '''
         for i in range(self.para_gens):
+            if self.do_mutation: self.mutate()
             times = self.genDrift(times)
             if self.do_sr: self.genotype_freqs = self.reproduce()
         return times
@@ -85,9 +87,15 @@ class individual:
             new_allele_freqs[a] = random.choices(self.gene_range, self.trans_ps[allele_freqs[a]])[0]
             times[6] += time.time() - tm
             tm = time.time()
-            all_prop = (new_allele_freqs[a]/self.num_genes)**(2*self.gnt_sel_bias[a])
-            probs = [1-all_prop, all_prop]
-            if self.is_dip: probs = [(1-all_prop)**2, 2*all_prop*(1-all_prop), all_prop**2]
+            all_prop = self.bias(new_allele_freqs[a]/self.num_genes, a)
+            # xs = np.array(range(11))/10
+            # ys = [self.bias(x, a) for x in xs]
+            # # print(self.genotype_freqs)
+            # print(self.all_sel_bias)
+            # plt.plot(xs, ys)
+            # plt.show()
+            # exit()
+            probs = self.ploidyProbs(all_prop)
             times[7] += time.time() - tm
             tm = time.time()
             all_dist = self.rng.multinomial(n=self.pc, pvals=probs)
@@ -113,7 +121,6 @@ class individual:
         for n_g in new_genotypes: self.genotype_freqs[n_g] += 1
         times[14] += time.time() - tm
         tm = time.time()
-        if self.do_mutation: self.mutate()
         times[13] += time.time() - tm
         self.storeData()
         return times
@@ -122,12 +129,19 @@ class individual:
         '''
         Effects the mutations observed over a single generation.
         '''
-        num_muts = self.rng.binomial(self.pc, self.mut_chance)
+        num_muts = self.rng.binomial(self.pc*self.num_alleles, self.mut_chance)
         for i in range(num_muts):
             mut_src = self.infect()
-            pot_tgts = list(self.genotype_freqs.keys())
-            pot_tgts.pop(pot_tgts.index(mut_src))
-            mut_tgt = random.choice(pot_tgts)
+            gnt_split = mut_src.split('.')
+            all_idx = random.choice(list(range(self.num_alleles)))
+            all_to_mut = gnt_split[all_idx]
+            all_chances = dictify(genAlleles(all_to_mut), self.ploidyProbs())
+            del all_chances[all_to_mut]
+            new_sum = sum(all_chances.values())
+            all_chances = {al: all_chances[al]/new_sum for al in all_chances}
+            new_all = random.choices(list(all_chances.keys()), list(all_chances.values()))[0]
+            gnt_split[all_idx] = new_all
+            mut_tgt = '.'.join(gnt_split)
             self.genotype_freqs[mut_src] -= 1
             self.genotype_freqs[mut_tgt] += 1
             if self.file is not None: self.file.write('\tmut\n')
@@ -252,6 +266,13 @@ class individual:
         '''
         if sn: return random.random() < self.genotype_freqs[sn]/self.pc
         return random.random() < 1/len(self.getGenotypes())
+    
+    def ploidyProbs(self, a_p: float=0.5):
+        if self.is_hap: return [1-a_p, a_p]
+        else: return [(1-a_p)**2, 2*a_p*(1-a_p), a_p**2]
+
+    def bias(self, a_p: float, al: str):
+        return a_p**((2*(1-self.all_sel_bias[al]))**self.bias_strength)
 
     def storeData(self, force: bool=False):
         '''

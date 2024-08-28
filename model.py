@@ -177,7 +177,7 @@ class SIR:
         for a in alleles:
             if a.char in g:
                 new_model = effectMutation(a, new_model)
-                if self.pop.do_sel_bias and vec is not None:
+                if vec is not None:
                     temp_mdl = self.newStrain(g)
                     temp_mdl.r0(vec, set_biases=True, sn=a.locus)
                     effectMutation(a, temp_mdl, v_m=None).r0(vec, set_biases=True, sn=a.char)
@@ -189,9 +189,9 @@ class SIR:
         vector model as an input.
         '''
         r0_val = (vec_mdl.pop.tot_pop/self.pop.tot_pop)*self.itr[vec_mdl.pop]*vec_mdl.itr[self.pop]/(self.rr*vec_mdl.bd)
-        if self.pop.do_sel_bias and set_biases:
+        if set_biases:
             if not sn: sn = self.sn
-            self.pop.gnt_sel_bias[sn] = r0_val
+            self.pop.all_sel_bias[sn] = r0_val
             if sn in vec_mdl.pop.sel_bias_lst: vec_mdl.pop.sel_bias_lst[sn] += [r0_val]
             else: vec_mdl.pop.sel_bias_lst[sn] = [r0_val]
         return r0_val
