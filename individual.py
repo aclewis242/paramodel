@@ -22,6 +22,9 @@ class individual:
     pc_to_transmit = 0
     marked_for_death = False
     store_chance = 0.0
+    is_new_inf = True
+    num_alleles = -1
+    gnt_sel_bias: dict[str, float] = {}
 
     def __init__(self, alleles: list[allele]=[], gnt: str='', gdm=wf, tps: list[list[float]]=None, **kwargs):
         '''
@@ -44,8 +47,11 @@ class individual:
         '''
         self.__dict__.update(kwargs)
         self.genotype_freqs: dict[str, int] = {}
+        self.num_alleles = len(alleles)
+        self.gnt_sel_bias: dict[str, float] = {}
         gnts = genGenotypes(alleles, self.is_hap)
         for g in gnts: self.genotype_freqs[g] = 0
+        for a in alleles: self.gnt_sel_bias[a.char] = 0.5
         if gnt: self.genotype_freqs[gnt] = self.pc
         if tps is None: self.trans_ps = gdm(self.num_genes)
         else: self.trans_ps = tps
@@ -53,60 +59,65 @@ class individual:
         self.gene_range: list[int] = list(range(self.num_genes+1))
         if self.pc_to_transmit > self.pc: self.pc_to_transmit = self.pc
         self.marked_for_death = False
+        self.is_new_inf = True
 
     def simPara(self, times: list):
         '''
         Simulates the parasites' behavior. (`times` is for speed-recording purposes; refer to sim_lib for details.)
         '''
-        tba = ''
         for i in range(self.para_gens):
-            if self.file is not None: self.file.write('\t'.join([str(self.genotype_freqs[g]) for g in self.genotype_freqs])+'\n')
-            tm = time.time()
-            allele_freqs = self.getAlleleFreqs()
-            times[9] += time.time() - tm # kind of expensive
-            new_allele_freqs = allele_freqs.copy()
-            new_genotypes = ['']*self.pc
-            curr_ind = len(allele_freqs)
-            for a in allele_freqs:
-                curr_ind -= 1
-                tm = time.time()
-                new_allele_freqs[a] = random.choices(self.gene_range, self.trans_ps[allele_freqs[a]])[0]
-                times[6] += time.time() - tm
-                tm = time.time()
-                all_prop = new_allele_freqs[a]/self.num_genes
-                probs = [1-all_prop, all_prop]
-                if self.is_dip: probs = [(1-all_prop)**2, 2*all_prop*(1-all_prop), all_prop**2]
-                times[7] += time.time() - tm
-                tm = time.time()
-                all_dist = self.rng.multinomial(n=self.pc, pvals=probs)
-                times[10] += time.time() - tm # equally kind of expensive
-                j = 0
-                tm = time.time()
-                for a_d_i in range(self.ploidy+1): # essentially a pc-length for loop
-                    for k in range(all_dist[a_d_i]):
-                        if a_d_i == 0: tba = self.ploidy*chr(ord(a)+32) # changes char to lowercase quicker than .lower() method
-                        elif a_d_i == 1:
-                            if self.is_hap: tba = a
-                            else: tba = (a + chr(ord(a)+32))
-                        elif a_d_i == 2: tba = 2*a
-                        if curr_ind: tba += '.'
-                        new_genotypes[j] += tba
-                        j += 1
-                times[11] += time.time() - tm # most expensive but not by a huge amount
-                tm = time.time()
-                if curr_ind: random.shuffle(new_genotypes)
-                times[12] += time.time() - tm # second most expensive
-            self.genotype_freqs = self.genotype_freqs.fromkeys(self.genotype_freqs, 0)
-            tm = time.time()
-            for n_g in new_genotypes: self.genotype_freqs[n_g] += 1
-            times[14] += time.time() - tm
-            tm = time.time()
-            if self.do_mutation: self.mutate()
-            times[13] += time.time() - tm
-            # reproduction placeholder
-            self.storeData()
+            times = self.genDrift(times)
+            if self.do_sr: self.genotype_freqs = self.reproduce()
         return times
     
+    def genDrift(self, times: list):
+        if self.file is not None: self.file.write('\t'.join([str(self.genotype_freqs[g]) for g in self.genotype_freqs])+'\n')
+        tm = time.time()
+        allele_freqs = self.getAlleleFreqs()
+        times[9] += time.time() - tm # kind of expensive
+        new_allele_freqs = allele_freqs.copy()
+        new_genotypes = ['']*self.pc
+        curr_ind = len(allele_freqs)
+        tba = ''
+        for a in allele_freqs:
+            curr_ind -= 1
+            tm = time.time()
+            new_allele_freqs[a] = random.choices(self.gene_range, self.trans_ps[allele_freqs[a]])[0]
+            times[6] += time.time() - tm
+            tm = time.time()
+            all_prop = (new_allele_freqs[a]/self.num_genes)**(2*self.gnt_sel_bias[a])
+            probs = [1-all_prop, all_prop]
+            if self.is_dip: probs = [(1-all_prop)**2, 2*all_prop*(1-all_prop), all_prop**2]
+            times[7] += time.time() - tm
+            tm = time.time()
+            all_dist = self.rng.multinomial(n=self.pc, pvals=probs)
+            times[10] += time.time() - tm # equally kind of expensive
+            j = 0
+            tm = time.time()
+            for a_d_i in range(self.ploidy+1): # essentially a pc-length for loop
+                for k in range(all_dist[a_d_i]):
+                    if a_d_i == 0: tba = self.ploidy*chr(ord(a)+32) # changes char to lowercase quicker than .lower() method
+                    elif a_d_i == 1:
+                        if self.is_hap: tba = a
+                        else: tba = (a + chr(ord(a)+32))
+                    elif a_d_i == 2: tba = 2*a
+                    if curr_ind: tba += '.'
+                    new_genotypes[j] += tba
+                    j += 1
+            times[11] += time.time() - tm # most expensive but not by a huge amount
+            tm = time.time()
+            if curr_ind: random.shuffle(new_genotypes)
+            times[12] += time.time() - tm # second most expensive
+        self.genotype_freqs = self.genotype_freqs.fromkeys(self.genotype_freqs, 0)
+        tm = time.time()
+        for n_g in new_genotypes: self.genotype_freqs[n_g] += 1
+        times[14] += time.time() - tm
+        tm = time.time()
+        if self.do_mutation: self.mutate()
+        times[13] += time.time() - tm
+        self.storeData()
+        return times
+
     def mutate(self):
         '''
         Effects the mutations observed over a single generation.
@@ -121,12 +132,32 @@ class individual:
             self.genotype_freqs[mut_tgt] += 1
             if self.file is not None: self.file.write('\tmut\n')
     
-    def reproduce(self, a: allele):
+    def reproduce(self, s_d: dict[str, int]={}):
         '''
-        Currently deprecated; may eventually be used for sexual reproduction modelling.
+        Models sexual reproduction based on the given strain distribution. Note: haploid input distributions are okay, but it necessarily
+        returns a diploid output distribution!
         '''
-        return
-    
+        if not s_d: s_d = self.genotype_freqs
+        if (not self.is_new_inf or self.is_hap) or not self.do_sr: return s_d
+        new_dist = self.matchDist(dict.fromkeys(s_d, 0))
+        total_num = sum(s_d.values())
+        for i in range(total_num):
+            parents = [self.infect(s_d).split('.') for j in range(2)]
+            new_gnt = ''
+            for j in range(self.num_alleles):
+                new_all = ''
+                for par in parents: new_all += random.choice(par[j])
+                new_all_lst = list(new_all)
+                new_all_lst.sort()
+                new_gnt += (''.join(new_all_lst) + '.')
+            new_gnt = new_gnt[:-1]
+            new_dist[new_gnt] += 1
+        self.is_new_inf = False
+        if self.file is not None:
+            self.file.write(f'orig: {self.genotype_freqs}\n')
+            self.file.write(f'sr: {s_d} -> {new_dist}\n')
+        return new_dist
+
     def getGenotypes(self):
         '''
         Returns all present genotypes as a list.
@@ -140,11 +171,12 @@ class individual:
         gtf_vals = np.array(list(self.genotype_freqs.values()))
         return dictify(self.genotype_freqs.keys(), self.rng.multinomial(num, normalise(gtf_vals)))
 
-    def infect(self):
+    def infect(self, gtfs: dict[str, int]={}):
         '''
         Performs an infection.
         '''
-        return random.choices(list(self.genotype_freqs.keys()), [gtf/self.pc for gtf in list(self.genotype_freqs.values())])[0]
+        if not gtfs: gtfs = self.genotype_freqs
+        return random.choices(list(gtfs.keys()), [gtf/self.pc for gtf in list(gtfs.values())])[0]
     
     def getAlleleFreqs(self):
         '''
@@ -176,6 +208,9 @@ class individual:
         Infects the individual with the given strain distribution.
         '''
         if self.file is not None: self.file.write('\tinfectSelfMult\n')
+        if self.do_sr:
+            self.is_new_inf = True
+            mix = self.reproduce(mix)
         if sum(mix.values()) >= self.pc:
             self.setToMix(mix)
             return
@@ -205,6 +240,11 @@ class individual:
         if self.is_hap: m2u = hapify
         return m2u(s2m)
     
+    def matchDist(self, sd2m: dict[str, int]):
+        new_dist = dict.fromkeys(self.genotype_freqs, 0)
+        for s in sd2m: new_dist[self.match(s)] += sd2m[s]
+        return new_dist
+    
     def correction(self, sn: str=''):
         '''
         'Corrects' for overcounting by rolling a die, with success weighted either by the given strain's frequency or (if blank)
@@ -213,11 +253,11 @@ class individual:
         if sn: return random.random() < self.genotype_freqs[sn]/self.pc
         return random.random() < 1/len(self.getGenotypes())
 
-    def storeData(self):
+    def storeData(self, force: bool=False):
         '''
         Stores genotype frequency data, maybe (depends on `store_chance`).
         '''
-        if self.file is None and random.random() <= self.store_chance:
+        if self.file is None and (random.random() <= self.store_chance or force):
             self.file = open(f'{int(random.random()*1e6)}.dat', 'x')
             [self.file.write(f'{gnt}\t') for gnt in self.genotype_freqs]
             self.file.write('\n')

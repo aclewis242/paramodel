@@ -103,6 +103,7 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
                 max_strn = s
         p.inf[max_strn] = 0
         p.inf[max_strn.lower()] = max_inf
+    [p.updateSelBiases() for p in pops]
 
     for i in ts_i:
         tm = time.time()

@@ -21,6 +21,7 @@ class allele:
             (its value should be between -1 and 1, not inclusive)
         '''
         self.__dict__.update(kwargs)
+        self.char = self.char.upper()
     
     @property
     def locus(self):

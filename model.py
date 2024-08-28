@@ -170,18 +170,31 @@ class SIR:
         '''
         new_model = self.newStrain(g)
         new_model.genotype = g
+        def effectMutation(al: allele, mdl: 'SIR', v_m: 'SIR'=vec):
+            if al.fav_pop == mdl.pn: mdl.mutate(al.param, 1+al.fac, v_m)
+            if al.unf_pop == mdl.pn: mdl.mutate(al.param, 1/(1+al.fac), v_m)
+            return mdl
         for a in alleles:
             if a.char in g:
-                if a.fav_pop == new_model.pn: new_model.mutate(a.param, 1+a.fac, vec)
-                if a.unf_pop == new_model.pn: new_model.mutate(a.param, 1/(1+a.fac), vec)
+                new_model = effectMutation(a, new_model)
+                if self.pop.do_sel_bias and vec is not None:
+                    temp_mdl = self.newStrain(g)
+                    temp_mdl.r0(vec, set_biases=True, sn=a.locus)
+                    effectMutation(a, temp_mdl, v_m=None).r0(vec, set_biases=True, sn=a.char)
         return new_model
 
-    def r0(self, vec_mdl: 'SIR') -> float:
+    def r0(self, vec_mdl: 'SIR', set_biases: bool=False, sn: str='') -> float:
         '''
         Estimates R0 for the given model. Meant to be more a vague guideline than a hard and fast rule. Takes the corresponding (same strain)
         vector model as an input.
         '''
-        return (vec_mdl.pop.tot_pop/self.pop.tot_pop)*self.itr[vec_mdl.pop]*vec_mdl.itr[self.pop]/(self.rr*vec_mdl.bd)
+        r0_val = (vec_mdl.pop.tot_pop/self.pop.tot_pop)*self.itr[vec_mdl.pop]*vec_mdl.itr[self.pop]/(self.rr*vec_mdl.bd)
+        if self.pop.do_sel_bias and set_biases:
+            if not sn: sn = self.sn
+            self.pop.gnt_sel_bias[sn] = r0_val
+            if sn in vec_mdl.pop.sel_bias_lst: vec_mdl.pop.sel_bias_lst[sn] += [r0_val]
+            else: vec_mdl.pop.sel_bias_lst[sn] = [r0_val]
+        return r0_val
 
     def printParams(self):
         '''
