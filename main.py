@@ -52,13 +52,13 @@ HST2 = {
     'pn_full': 'Host 2',
 }
 
-bias_strength = 0.3
+bias_strength = 0.0
 INDV_VEC = {
     'pc': 12,
     'mut_chance': 4e-3,
     'para_lsp': 2.,
     'is_hap': False,
-    'do_sr': False,
+    'do_sr': True,
     'do_mutation': False,
     'do_indvs': True,
     'pc_to_transmit': 10,
@@ -84,7 +84,7 @@ INDVS = [INDV_VEC, INDV_HST]
 A = allele(char='A', fav_pop='h1', unf_pop='h2', param='itr', fac=0.3)
 B = allele(char='B', fav_pop='h1', unf_pop='h2', param='itr', fac=0.3)
 C = allele(char='C', fav_pop='h1', unf_pop='h2', param='rr', fac=-0.6)
-D = allele(char='D', fav_pop='h1', unf_pop='h2', param='itr', fac=1.25)
+D = allele(char='D', fav_pop='h1', unf_pop='h2', param='itr', fac=0.5)
 ALLELES = [D]
 
 PARAMS_1 = HST1
@@ -128,7 +128,7 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
     m1 = SIR(hosts_1, **PARAMS_1)
     m2 = SIR(vectors, **PARAMS_2)
     # m3 = SIR(p0_3, **PARAMS_3)
-    itr_h1 = 0.15 # h1 <-> vec
+    itr_h1 = 0.25 # h1 <-> vec
     itr_h2 = 0.10 # h2 <-> vec
     # m1.itr = {p0_2: itr_h1, p0_3: 0.} # the number represents the rate at which m1 infects that population
     # m2.itr = {p0_1: itr_h1, p0_3: itr_h2}
