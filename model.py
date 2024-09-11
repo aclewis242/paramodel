@@ -73,19 +73,25 @@ class SIR:
         if not N: return [0. for r in self.Rs]
         self.bds = self.bd/len(self.pop.inf)
         I_BD = 0
-        for ind in self.pop.getSusInf(self.sn, is_present=True):
-            I_BD += 1/len(ind.getGenotypes())
+        I_RR = 0
+        inf_indvs = self.pop.getSusInf(self.sn, is_present=True)
+        # if len(inf_indvs) != I and I != 100:
+        #     print(f'{len(inf_indvs)}, {I}')
+        #     exit()
+        for ind in inf_indvs:
+            I_BD += ind.correction_det()
+            I_RR += ind.correction_det(sn=self.sn)
         I_BD = int(I_BD)
+        I_RR = int(I_RR)
         self.Rs = [N*self.bd*0,     # 'legacy', since births are now pop-delineated (like deaths always were)
                     self.ir*S*I/N,
-                    self.rr*I,
+                    self.rr*I_RR,
                     self.bds*S,
-                    self.bd*I_BD,
+                    self.bd*I,
                     self.bd*R,
                     self.wi*R,
                     self.bds*S,
-                    self.bd*I_BD,
-                    # self.bd*R] + [self.itr[p2]*I*p2.sus/(N+p2.tot_pop) for p2 in self.itr]
+                    self.bd*I,
                     self.bd*R] + [self.itr[p2]*I*(p2.sus+p2.getSusInfNum(self.sn))/(self.pop.tot_pop+p2.tot_pop) for p2 in self.itr]
         return self.Rs
 
@@ -127,7 +133,11 @@ class SIR:
             for indv in pop.individuals[:int(rpt)]: chng += indv.correction(self.sn*(idx==2))
             if idx == 2:
                 f = open('inf_events_raw.dat', 'a')
-                for i in range(chng): f.write(f'recover {self.sn}\n')
+                for indv in pop.individuals[:int(rpt)]:
+                    f.write(f'recover {indv.genotype_freqs}\n')
+                    f.write(f'corr chance ({self.sn}): {sum([indv.correction(self.sn*(idx==2)) for i in range(100)])/100}\n')
+                    f.write(f'recover\n')
+                f.write(f'chng: {chng}, rpt: {rpt}\n')
                 f.close()
             rpt = chng
         addPopMult(idx, rpt, self.sn)

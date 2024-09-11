@@ -275,6 +275,19 @@ class individual:
         '''
         if sn: return random.random() < self.genotype_freqs[sn]/self.pc
         return random.random() < 1/len(self.getGenotypes())
+        # num = 0
+        # if sn: num = self.genotype_freqs[sn]/self.pc
+        # else: num = 1/len(self.getGenotypes())
+        # f = open('anti_stoch.dat')
+        # num += float(f.readline())
+        # f.close()
+        # f = open('anti_stoch.dat', 'w')
+        # f.write(str(num%1))
+        # return num >= 1
+    
+    def correction_det(self, sn: str=''):
+        if sn: return self.genotype_freqs[sn]/self.pc
+        else: return 1/len(self.getGenotypes())
     
     def ploidyProbs(self, a_p: float=0.5):
         if self.is_hap: return [1-a_p, a_p]

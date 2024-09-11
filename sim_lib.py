@@ -116,9 +116,9 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
             mdls[j].setRs()
             for k in range(num_Rs):
                 all_Rs[j*num_Rs+k] = mdls[j].Rs[k]
-        if not p.is_vector and p.tot_pop != 2101:
-            print(f'\n\nmoved from host pop {old_tot_pop} to {p.tot_pop} after setting rs\n\n')
-            exit()
+        # if not p.is_vector and p.tot_pop != 2101:
+        #     print(f'\n\nmoved from host pop {old_tot_pop} to {p.tot_pop} after setting rs\n\n')
+        #     exit()
         times[0] += time.time() - tm # a little expensive. scales poorly with simulation complexity
         tm = time.time()
         sum_Rs = sum(all_Rs)
@@ -128,9 +128,9 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
         times[2] += time.time() - tm
         tm = time.time()
         Xs = adaptSim(all_Rs/sum_Rs, sum_Rs, dt)
-        if not p.is_vector and p.tot_pop != 2101:
-            print(f'\n\nmoved from host pop {old_tot_pop} to {p.tot_pop} after adaptsim\n\n')
-            exit()
+        # if not p.is_vector and p.tot_pop != 2101:
+        #     print(f'\n\nmoved from host pop {old_tot_pop} to {p.tot_pop} after adaptsim\n\n')
+        #     exit()
         times[3] += time.time() - tm # most expensive
         for i_m in range(num_mdls):
             for i_r in range(num_Rs):
@@ -139,15 +139,15 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
                 if rpt: mdls[i_m].trans(i_r, rpt)
                 times[4] += time.time() - tm # 2nd most expensive
         tm = time.time()
-        if not p.is_vector and p.tot_pop != 2101:
-            print(f'\n\nmoved from host pop {old_tot_pop} to {p.tot_pop} after trans\n\n')
-            exit()
+        # if not p.is_vector and p.tot_pop != 2101:
+        #     print(f'\n\nmoved from host pop {old_tot_pop} to {p.tot_pop} after trans\n\n')
+        #     exit()
         for i_p in range(num_pops):
             ps[i][i_p] = pops[i_p].getAllPop(weight=weight_infs)
             ps_unwgt[i][i_p] = pops[i_p].getAllPop()
-        if not p.is_vector and p.tot_pop != 2101:
-            print(f'\n\nmoved from host pop {old_tot_pop} to {p.tot_pop} after weight\n\n')
-            exit()
+        # if not p.is_vector and p.tot_pop != 2101:
+        #     print(f'\n\nmoved from host pop {old_tot_pop} to {p.tot_pop} after weight\n\n')
+        #     exit()
         times[5] += time.time() - tm
         # All remaining measurement blocks are left over from a more complicated and inefficient time
         # Preserved in case they prove useful sometime in the future
@@ -155,6 +155,7 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
         times[6] += time.time() - tm
         tm = time.time()
         for p in pops:
+            # p.refresh(update=True)
             alive: list[individual] = []
             old_tot_pop = p.tot_pop
             for indv_i in range(len(p.individuals)):
@@ -175,12 +176,13 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
                             if p.inf[strn] < 0: print('concern')
                     alive += [indv]
             p.individuals = alive
-            if not p.is_vector and p.tot_pop != 2101:
-                print(f'\n\nmoved from host pop {old_tot_pop} to {p.tot_pop}\n\n')
-                exit()
-        if not p.is_vector and p.tot_pop != 2101:
-            print(f'\n\nmoved from host pop {old_tot_pop} to {p.tot_pop} after simpara\n\n')
-            exit()
+            # p.refresh(update=True)
+            # if not p.is_vector and p.tot_pop != 2101:
+            #     print(f'\n\nmoved from host pop {old_tot_pop} to {p.tot_pop}\n\n')
+            #     exit()
+        # if not p.is_vector and p.tot_pop != 2101:
+        #     print(f'\n\nmoved from host pop {old_tot_pop} to {p.tot_pop} after simpara\n\n')
+        #     exit()
         times[15] += time.time() - tm
         tm = time.time()
         vpi = len(vec_pop.individuals)

@@ -157,6 +157,10 @@ class population:
             inf_indvs = self.getSusInf(sn, is_present=True)
             for ind in inf_indvs[:-I]:
                 if R or ind.correction():
+                    if not R:
+                        f = open('inf_events_raw.dat', 'a')
+                        f.write(f'death {ind.genotype_freqs}\n')
+                        f.close()
                     ind.marked_for_death = True
                     other_gts = list(set(ind.getGenotypes()) - set([sn]))
                     for gt in other_gts: inf_new[gt] -= 1
@@ -178,29 +182,29 @@ class population:
         real_infs = dict.fromkeys(self.inf, 0)
         for ind in self.indvs:
             for gt in ind.getGenotypes(): real_infs[gt] += 1
-        if ((not self.is_vector and self.tot_pop != 2101) or len(self.indvs) < max(self.inf.values()) or (real_infs != self.inf
-                and sum(p) < 100)):
-            print(f'p: {p}, sn: {sn}')
-            print('OLD:')
-            print(old_data)
-            print(f'len old indvs: {old_indvs_len}; old sus: {old_sus}')
-            print('NEW:')
-            self.printDat()
-            print(f'len new indvs: {len(self.indvs)}; new sus: {self.sus}')
-            print(sum(self.rec.values()))
-            [print(ind.genotype_freqs) for ind in inf_indvs]
-            print(f'I_corr: {I_corr}')
-            print(f'i_change: {i_change}')
-            print(f'to_change: {to_change}')
-            print(f'old_real_infs: {old_real_infs}')
-            print(f'real_infs: {real_infs}')
-            print(f'self.inf: {self.inf}')
-            print(f'dead_gnts: {dead_gnts}')
-            print(f'tba gnts: {[ind.getGenotypes() for ind in tba]}')
-            print(f'mod_ind gnts: {[ind.getGenotypes() for ind in mod_inds]}')
-            print(f'pre_gnts: {pre_gnts}')
-            print(f'sus_indvs gnts: {[ind.getGenotypes() for ind in sus_indvs]}')
-            exit()
+        # if ((not self.is_vector and self.tot_pop != 2101) or len(self.indvs) < max(self.inf.values()) or (real_infs != self.inf
+        #         and sum(p) < 100)):
+        #     print(f'p: {p}, sn: {sn}')
+        #     print('OLD:')
+        #     print(old_data)
+        #     print(f'len old indvs: {old_indvs_len}; old sus: {old_sus}')
+        #     print('NEW:')
+        #     self.printDat()
+        #     print(f'len new indvs: {len(self.indvs)}; new sus: {self.sus}')
+        #     print(sum(self.rec.values()))
+        #     [print(ind.genotype_freqs) for ind in inf_indvs]
+        #     print(f'I_corr: {I_corr}')
+        #     print(f'i_change: {i_change}')
+        #     print(f'to_change: {to_change}')
+        #     print(f'old_real_infs: {old_real_infs}')
+        #     print(f'real_infs: {real_infs}')
+        #     print(f'self.inf: {self.inf}')
+        #     print(f'dead_gnts: {dead_gnts}')
+        #     print(f'tba gnts: {[ind.getGenotypes() for ind in tba]}')
+        #     print(f'mod_ind gnts: {[ind.getGenotypes() for ind in mod_inds]}')
+        #     print(f'pre_gnts: {pre_gnts}')
+        #     print(f'sus_indvs gnts: {[ind.getGenotypes() for ind in sus_indvs]}')
+        #     exit()
     
     def getChanges(self, pop_num: int, weights: np.ndarray[float]):
         '''
@@ -300,11 +304,15 @@ class population:
         for ind in self.indvs: ind.all_sel_bias = self.all_sel_bias.copy()
         self.indv_params['all_sel_bias'] = self.all_sel_bias
 
-    def refresh(self):
+    def refresh(self, update: bool=True):
         '''
         Filters out individuals that have been 'marked for death.'
         '''
         self.indvs = [ind for ind in self.indvs if not ind.marked_for_death]
+        if update:
+            self.inf = dict.fromkeys(self.inf, 0)
+            for ind in self.indvs:
+                for gt in ind.getGenotypes(): self.inf[gt] += 1
         return self.indvs
         
     def printDatStr(self):

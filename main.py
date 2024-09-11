@@ -116,6 +116,7 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
     f = open('last_event.dat', 'x')
     f.close()
     f = open('anti_stoch.dat', 'x')
+    f.write('0')
     f.close()
     alleles = []
     if do_allele_mod: alleles = ALLELES
