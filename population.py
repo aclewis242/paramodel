@@ -84,6 +84,11 @@ class population:
         '''
         sn = self.match(sn)
         old_data = self.printDatStr()
+        old_indvs_len = len(self.indvs)
+        old_sus = self.sus
+        old_real_infs = dict.fromkeys(self.inf, 0)
+        for ind in self.indvs:
+            for gt in ind.getGenotypes(): old_real_infs[gt] += 1
         test_add = [self.sus, self.inf[sn], self.rec[sn]]
         neg = -1
         for i in range(3):
@@ -112,7 +117,6 @@ class population:
         sus_indvs: list[individual] = []
         strain_indvs: dict[str, list[individual]] = {}
         sus_pops: np.ndarray[float]
-        do_shuffle = False
         if self.do_mixed_infs and (S < 0 or I):
             sus_indvs = self.getSusInf(sn)
             for sn_i in self.inf: strain_indvs[sn_i] = self.getSusInf(sn_i, is_present=True, indvs_lst=sus_indvs)
@@ -123,18 +127,28 @@ class population:
         inf_new[sn] += I
         inf_indvs = []
         I_corr = 0
+        i_change = 0
+        to_change = {}
+        dead_gnts = []
+        tba: list[individual] = []
+        mod_inds: list[individual] = []
+        pre_gnts: list[list[str]] = []
         if I > 0:
             if self.do_indvs:
-                tba: list[individual] = []
                 if not self.do_mixed_infs: tba = self.makeIndvs(sn, I)
                 else: # 'mixed' in the sense of 'mixed final parasite genotypes,' not 'mixed transmission'
                     i_change, to_change = self.getChanges(I, sus_pops)
                     tba = self.makeIndvs(sn, i_change)
                     for strn in to_change:
-                        indvs_to_infect = strain_indvs[strn]
-                        if do_shuffle: random.shuffle(indvs_to_infect)
-                        for ind in indvs_to_infect[:to_change[strn]]: ind.infectSelf(pc_trans, sn)
-                        do_shuffle = True
+                        sus_new += to_change[strn]
+                        indvs_with_strn = self.getSusInf(strn, is_present=True)
+                        indvs_to_infect = self.getSusInf(sn, indvs_lst=indvs_with_strn)
+                        random.shuffle(indvs_to_infect)
+                        for ind in indvs_to_infect[:to_change[strn]]:
+                            pre_gnts += [ind.getGenotypes()]
+                            dead_gnts = ind.infectSelf(pc_trans, sn)
+                            for d_g in dead_gnts: inf_new[d_g] -= 1
+                            mod_inds += [ind]
                 self.indvs += tba
         elif I < 0:
             I_corr = 0
@@ -161,18 +175,32 @@ class population:
         f.write('\nnew data:\n')
         f.write(self.printDatStr())
         f.close()
-        # if (not self.is_vector and self.tot_pop > 1051) or len(self.indvs) < max(self.inf.values()):
-        #     print(f'p: {p}, sn: {sn}')
-        #     print('OLD:')
-        #     print(old_data)
-        #     print(f'len old indvs: {len(old_indvs)}; old sus: {old_sus}')
-        #     print('NEW:')
-        #     self.printDat()
-        #     print(f'len new indvs: {len(self.indvs)}; new sus: {self.sus}')
-        #     print(sum(self.rec.values()))
-        #     [print(ind.genotype_freqs) for ind in inf_indvs]
-        #     print(f'I_corr: {I_corr}')
-        #     exit()
+        real_infs = dict.fromkeys(self.inf, 0)
+        for ind in self.indvs:
+            for gt in ind.getGenotypes(): real_infs[gt] += 1
+        if ((not self.is_vector and self.tot_pop != 2101) or len(self.indvs) < max(self.inf.values()) or (real_infs != self.inf
+                and sum(p) < 100)):
+            print(f'p: {p}, sn: {sn}')
+            print('OLD:')
+            print(old_data)
+            print(f'len old indvs: {old_indvs_len}; old sus: {old_sus}')
+            print('NEW:')
+            self.printDat()
+            print(f'len new indvs: {len(self.indvs)}; new sus: {self.sus}')
+            print(sum(self.rec.values()))
+            [print(ind.genotype_freqs) for ind in inf_indvs]
+            print(f'I_corr: {I_corr}')
+            print(f'i_change: {i_change}')
+            print(f'to_change: {to_change}')
+            print(f'old_real_infs: {old_real_infs}')
+            print(f'real_infs: {real_infs}')
+            print(f'self.inf: {self.inf}')
+            print(f'dead_gnts: {dead_gnts}')
+            print(f'tba gnts: {[ind.getGenotypes() for ind in tba]}')
+            print(f'mod_ind gnts: {[ind.getGenotypes() for ind in mod_inds]}')
+            print(f'pre_gnts: {pre_gnts}')
+            print(f'sus_indvs gnts: {[ind.getGenotypes() for ind in sus_indvs]}')
+            exit()
     
     def getChanges(self, pop_num: int, weights: np.ndarray[float]):
         '''
@@ -204,14 +232,14 @@ class population:
         if self.is_hap: m2u = hapify
         return m2u(s2m)
     
-    def getSusInf(self, sn: str, is_present: bool=False, indvs_lst: list[individual]=[]):
+    def getSusInf(self, sn: str, is_present: bool=False, indvs_lst: list[individual]=None):
         # get list of infected individuals either with the strain (T) or susceptible to infection by the strain (F)
         '''
         Gets list of infected individuals either with strain `sn` (`is_present`) or susceptible to infection by the strain
         (`not is_present`). A list to draw from can be provided, if desired (otherwise, it'll draw from `self.indvs`).
         '''
         is_present -= 1
-        if not len(indvs_lst): indvs_lst = self.indvs
+        if indvs_lst is None: indvs_lst = self.indvs
         return [ind for ind in indvs_lst if bool(ind.genotype_freqs[sn])+is_present]
     
     def getSusInfNum(self, sn: str, is_present: bool=False, indvs_lst: list[individual]=[]):
@@ -220,7 +248,8 @@ class population:
         (`not is_present`). A list to draw from can be provided, if desired (otherwise, it'll draw from `self.indvs`).
         '''
         rv = 0
-        if not len(indvs_lst): indvs_lst = self.indvs
+        sn = self.match(sn)
+        if not indvs_lst: indvs_lst = self.indvs
         is_present -= 1
         for ind in indvs_lst:
             if bool(ind.genotype_freqs[sn])+is_present: rv += 1
@@ -236,6 +265,7 @@ class population:
             new_indv.setToMix(mix)
             self.indvs += [new_indv]
             for gnt in new_indv.getGenotypes(): self.inf[gnt] += 1
+            self.sus -= 1
         else:
             random.shuffle(self.indvs)
             indv_to_infect = random.choice(self.indvs)
@@ -248,19 +278,27 @@ class population:
                 for gt in gts_rmv: self.inf[gt] -= 1
                 for gt in gts_add: self.inf[gt] += 1
 
-    def updateSelBiases(self):
-        if self.is_vector: self.all_sel_bias = {sn: stats.mean(self.sel_bias_lst[sn]) for sn in self.sel_bias_lst}
-        asb_pre_parse = {sn: self.all_sel_bias[sn]/sum(self.all_sel_bias.values()) for sn in self.all_sel_bias}
+    # def updateSelBiases(self):
+    #     if self.is_vector: self.all_sel_bias = {sn: stats.mean(self.sel_bias_lst[sn]) for sn in self.sel_bias_lst}
+    #     asb_pre_parse = {sn: self.all_sel_bias[sn]/sum(self.all_sel_bias.values()) for sn in self.all_sel_bias}
+    #     self.all_sel_bias: dict[str, float] = {}
+    #     for sn in asb_pre_parse:
+    #         if sn == sn.upper(): self.all_sel_bias[sn] = asb_pre_parse[sn]/(asb_pre_parse[sn] + asb_pre_parse[sn.lower()])
+    #     # print(self.do_sel_bias)
+    #     if not self.do_sel_bias:
+    #         for sn in self.all_sel_bias: self.all_sel_bias[sn] = 0.5
+    #     for ind in self.indvs: ind.all_sel_bias = self.all_sel_bias.copy()
+    #     self.indv_params['all_sel_bias'] = self.all_sel_bias
+    #     # print(f'{self}: {self.indv_params}')
+    #     # [print(ind.all_sel_bias) for ind in self.makeIndvs('DD', 1)]
+    
+    def updateSelBiases(self, alleles: list[allele]):
         self.all_sel_bias: dict[str, float] = {}
-        for sn in asb_pre_parse:
-            if sn == sn.upper(): self.all_sel_bias[sn] = asb_pre_parse[sn]/(asb_pre_parse[sn] + asb_pre_parse[sn.lower()])
-        # print(self.do_sel_bias)
-        if not self.do_sel_bias:
-            for sn in self.all_sel_bias: self.all_sel_bias[sn] = 0.5
+        for a in alleles:
+            base_sel_adv = a.sel_advs[self.pn]
+            self.all_sel_bias[a.char] = base_sel_adv/(base_sel_adv + 1.)
         for ind in self.indvs: ind.all_sel_bias = self.all_sel_bias.copy()
         self.indv_params['all_sel_bias'] = self.all_sel_bias
-        # print(f'{self}: {self.indv_params}')
-        # [print(ind.all_sel_bias) for ind in self.makeIndvs('DD', 1)]
 
     def refresh(self):
         '''

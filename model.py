@@ -72,16 +72,21 @@ class SIR:
         N = S + I + R
         if not N: return [0. for r in self.Rs]
         self.bds = self.bd/len(self.pop.inf)
+        I_BD = 0
+        for ind in self.pop.getSusInf(self.sn, is_present=True):
+            I_BD += 1/len(ind.getGenotypes())
+        I_BD = int(I_BD)
         self.Rs = [N*self.bd*0,     # 'legacy', since births are now pop-delineated (like deaths always were)
                     self.ir*S*I/N,
                     self.rr*I,
                     self.bds*S,
-                    self.bd*I,
+                    self.bd*I_BD,
                     self.bd*R,
                     self.wi*R,
                     self.bds*S,
-                    self.bd*I,
-                    self.bd*R] + [self.itr[p2]*I*p2.sus/(N+p2.tot_pop) for p2 in self.itr]
+                    self.bd*I_BD,
+                    # self.bd*R] + [self.itr[p2]*I*p2.sus/(N+p2.tot_pop) for p2 in self.itr]
+                    self.bd*R] + [self.itr[p2]*I*(p2.sus+p2.getSusInfNum(self.sn))/(self.pop.tot_pop+p2.tot_pop) for p2 in self.itr]
         return self.Rs
 
     def trans(self, idx: int, rpt: int=1):
@@ -99,7 +104,7 @@ class SIR:
         if idx >= self.num_Es:
             pop = list(self.itr.keys())[idx-self.num_Es]
             idx = 1
-            if len(self.pop.individuals): # consider moving to a bool (do_indvs) for speed
+            if self.pop.individuals: # consider moving to a bool (do_indvs) for speed
                 to_infect = {}
                 for i in range(int(rpt)):
                     indv = random.choice(self.pop.individuals)
@@ -120,6 +125,10 @@ class SIR:
             random.shuffle(pop.individuals)
             chng = 0
             for indv in pop.individuals[:int(rpt)]: chng += indv.correction(self.sn*(idx==2))
+            if idx == 2:
+                f = open('inf_events_raw.dat', 'a')
+                for i in range(chng): f.write(f'recover {self.sn}\n')
+                f.close()
             rpt = chng
         addPopMult(idx, rpt, self.sn)
         return self.pop.getPop(self.sn)
@@ -177,10 +186,10 @@ class SIR:
         for a in alleles:
             if a.char in g:
                 new_model = effectMutation(a, new_model)
-                if vec is not None:
-                    temp_mdl = self.newStrain(g)
-                    temp_mdl.r0(vec, set_biases=True, sn=a.locus)
-                    effectMutation(a, temp_mdl, v_m=None).r0(vec, set_biases=True, sn=a.char)
+                # if vec is not None:
+                #     temp_mdl = self.newStrain(g)
+                #     temp_mdl.r0(vec, set_biases=True, sn=a.locus)
+                #     effectMutation(a, temp_mdl, v_m=None).r0(vec, set_biases=True, sn=a.char)
         return new_model
 
     def r0(self, vec_mdl: 'SIR', set_biases: bool=False, sn: str='') -> float:
@@ -189,11 +198,11 @@ class SIR:
         vector model as an input.
         '''
         r0_val = (vec_mdl.pop.tot_pop/self.pop.tot_pop)*self.itr[vec_mdl.pop]*vec_mdl.itr[self.pop]/(self.rr*vec_mdl.bd)
-        if set_biases:
-            if not sn: sn = self.sn
-            self.pop.all_sel_bias[sn] = r0_val
-            if sn in vec_mdl.pop.sel_bias_lst: vec_mdl.pop.sel_bias_lst[sn] += [r0_val]
-            else: vec_mdl.pop.sel_bias_lst[sn] = [r0_val]
+        # if set_biases:
+        #     if not sn: sn = self.sn
+        #     self.pop.all_sel_bias[sn] = r0_val
+        #     if sn in vec_mdl.pop.sel_bias_lst: vec_mdl.pop.sel_bias_lst[sn] += [r0_val]
+        #     else: vec_mdl.pop.sel_bias_lst[sn] = [r0_val]
         return r0_val
 
     def printParams(self):

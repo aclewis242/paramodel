@@ -103,16 +103,22 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
                 max_strn = s
         p.inf[max_strn] = 0
         p.inf[max_strn.lower()] = max_inf
-    [p.updateSelBiases() for p in pops]
+    [p.updateSelBiases(alleles) for p in pops]
 
     # [[print(f'{ind.all_sel_bias}, {p}') for ind in p.individuals] for p in pops]
+    # exit()
 
+    hpis = []
+    vpis = []
     for i in ts_i:
         tm = time.time()
         for j in range(num_mdls):
             mdls[j].setRs()
             for k in range(num_Rs):
                 all_Rs[j*num_Rs+k] = mdls[j].Rs[k]
+        if not p.is_vector and p.tot_pop != 2101:
+            print(f'\n\nmoved from host pop {old_tot_pop} to {p.tot_pop} after setting rs\n\n')
+            exit()
         times[0] += time.time() - tm # a little expensive. scales poorly with simulation complexity
         tm = time.time()
         sum_Rs = sum(all_Rs)
@@ -122,6 +128,9 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
         times[2] += time.time() - tm
         tm = time.time()
         Xs = adaptSim(all_Rs/sum_Rs, sum_Rs, dt)
+        if not p.is_vector and p.tot_pop != 2101:
+            print(f'\n\nmoved from host pop {old_tot_pop} to {p.tot_pop} after adaptsim\n\n')
+            exit()
         times[3] += time.time() - tm # most expensive
         for i_m in range(num_mdls):
             for i_r in range(num_Rs):
@@ -130,9 +139,15 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
                 if rpt: mdls[i_m].trans(i_r, rpt)
                 times[4] += time.time() - tm # 2nd most expensive
         tm = time.time()
+        if not p.is_vector and p.tot_pop != 2101:
+            print(f'\n\nmoved from host pop {old_tot_pop} to {p.tot_pop} after trans\n\n')
+            exit()
         for i_p in range(num_pops):
             ps[i][i_p] = pops[i_p].getAllPop(weight=weight_infs)
             ps_unwgt[i][i_p] = pops[i_p].getAllPop()
+        if not p.is_vector and p.tot_pop != 2101:
+            print(f'\n\nmoved from host pop {old_tot_pop} to {p.tot_pop} after weight\n\n')
+            exit()
         times[5] += time.time() - tm
         # All remaining measurement blocks are left over from a more complicated and inefficient time
         # Preserved in case they prove useful sometime in the future
@@ -141,8 +156,12 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
         tm = time.time()
         for p in pops:
             alive: list[individual] = []
+            old_tot_pop = p.tot_pop
             for indv_i in range(len(p.individuals)):
                 indv = p.individuals[indv_i]
+                if sum(indv.genotype_freqs.values()) != indv.pc:
+                    print(f'indv with {indv.pc} parasites has gtfs {indv.genotype_freqs}')
+                    exit()
                 if not indv.marked_for_death:
                     init_gts = indv.getGenotypes()
                     times = indv.simPara(times)
@@ -156,9 +175,19 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
                             if p.inf[strn] < 0: print('concern')
                     alive += [indv]
             p.individuals = alive
+            if not p.is_vector and p.tot_pop != 2101:
+                print(f'\n\nmoved from host pop {old_tot_pop} to {p.tot_pop}\n\n')
+                exit()
+        if not p.is_vector and p.tot_pop != 2101:
+            print(f'\n\nmoved from host pop {old_tot_pop} to {p.tot_pop} after simpara\n\n')
+            exit()
         times[15] += time.time() - tm
         tm = time.time()
-        print(f'{int(100*i/nt)}%; vec indvs: {len(vec_pop.individuals)}; host indvs: {len(host_pop.individuals)}; vec pop: {vec_pop.tot_pop} ',
+        vpi = len(vec_pop.individuals)
+        hpi = len(host_pop.individuals)
+        vpis += [vpi]
+        hpis += [hpi]
+        print(f'{int(100*i/nt)}%; vec indvs: {vpi}; host indvs: {hpi}; vec pop: {vec_pop.tot_pop}; host pop: {host_pop.tot_pop} ',
                end='\r')
         times[8] += time.time() - tm
         tm = time.time()
@@ -174,7 +203,7 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
         tm = time.time()
         times[14] += time.time() - tm
     times[15] -= (sum(times[9:15]) + sum(times[6:8]))
-    return ts_i*dt, ps, times, pops, ps_unwgt
+    return ts_i*dt, ps, times, pops, ps_unwgt, vpis, hpis
 
 def adaptSim(ps: np.ndarray[float], sum_Rs: float, dt: float):
     '''

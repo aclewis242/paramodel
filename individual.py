@@ -87,7 +87,7 @@ class individual:
             new_allele_freqs[a] = random.choices(self.gene_range, self.trans_ps[allele_freqs[a]])[0]
             times[6] += time.time() - tm
             tm = time.time()
-            all_prop = self.bias(new_allele_freqs[a]/self.num_genes, a)
+            all_prop = self.bias(new_allele_freqs[a]/self.num_genes, self.all_sel_bias[a])
             # xs = np.array(range(11))/10
             # ys = [self.bias(x, a) for x in xs]
             # # print(self.genotype_freqs)
@@ -212,10 +212,15 @@ class individual:
         '''
         if self.file is not None: self.file.write('\tinfectSelf\n')
         if pc_num > self.pc: pc_num = self.pc
+        old_gnts = self.getGenotypes()
         to_replace = self.infectMult(pc_num)
         for stn in to_replace:
             self.genotype_freqs[stn] -= to_replace[stn]
             self.genotype_freqs[self.match(strn)] += to_replace[stn]
+        if sum(self.genotype_freqs.values()) != self.pc:
+            print(f'(inside indv) pc {self.pc}, gtfs {self.genotype_freqs}. submitted strain {strn}, pc_num {pc_num}')
+            exit()
+        return list(set(old_gnts) - set(self.getGenotypes()))
     
     def infectSelfMult(self, mix: dict[str, int]):
         '''
@@ -238,13 +243,17 @@ class individual:
         pc_transmitted = sum(mix.values())
         rem = 0.
         matched = ''
+        self.genotype_freqs = dict.fromkeys(self.genotype_freqs, 0)
         for strn in mix:
             matched = self.match(strn)
             amt_raw = self.pc*(mix[strn]/pc_transmitted) + rem
             amt = int(amt_raw)
             rem = amt_raw - amt
-            self.genotype_freqs[matched] = amt
+            self.genotype_freqs[matched] += amt
         if rem > 0.999: self.genotype_freqs[matched] += 1
+        if sum(self.genotype_freqs.values()) != self.pc:
+            print(f'(inside s2mix) pc {self.pc}, gtfs {self.genotype_freqs}. submitted mix {mix}')
+            exit()
 
     def match(self, s2m: str):
         '''
@@ -271,8 +280,8 @@ class individual:
         if self.is_hap: return [1-a_p, a_p]
         else: return [(1-a_p)**2, 2*a_p*(1-a_p), a_p**2]
 
-    def bias(self, a_p: float, al: str):
-        return a_p**((2*(1-self.all_sel_bias[al]))**self.bias_strength)
+    def bias(self, a_p: float, bias_num: float):
+        return a_p**((2*(1-bias_num))**self.bias_strength)
 
     def storeData(self, force: bool=False):
         '''

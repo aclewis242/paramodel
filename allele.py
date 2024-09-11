@@ -7,6 +7,8 @@ class allele:
     unf_pop = ''
     param = ''
     fac = 0.0
+    sel_advs: dict[str, float] = {} # specifically for mutated allele
+    trans_advs: dict[str, float] = {}
 
     def __init__(self, **kwargs):
         '''
@@ -22,6 +24,8 @@ class allele:
         '''
         self.__dict__.update(kwargs)
         self.char = self.char.upper()
+        self.sel_advs: dict[str, float] = {}
+        self.trans_advs: dict[str, float] = {}
     
     @property
     def locus(self):
