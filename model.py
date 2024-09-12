@@ -81,18 +81,21 @@ class SIR:
         for ind in inf_indvs:
             I_BD += ind.correction_det()
             I_RR += ind.correction_det(sn=self.sn)
-        I_BD = int(I_BD)
-        I_RR = int(I_RR)
+        # I_BD = int(I_BD)
+        # I_RR = int(I_RR)
+        # seemingly best to use I (not I_BD), I_RR
         self.Rs = [N*self.bd*0,     # 'legacy', since births are now pop-delineated (like deaths always were)
                     self.ir*S*I/N,
                     self.rr*I_RR,
                     self.bds*S,
-                    self.bd*I,
+                    self.bd*I_BD,
                     self.bd*R,
                     self.wi*R,
                     self.bds*S,
-                    self.bd*I,
-                    self.bd*R] + [self.itr[p2]*I*(p2.sus+p2.getSusInfNum(self.sn))/(self.pop.tot_pop+p2.tot_pop) for p2 in self.itr]
+                    self.bd*I_BD,
+                    self.bd*R] + [self.itr[p2]*I_RR*(p2.sus+p2.getSusInfNum(self.sn))/(self.pop.tot_pop+p2.tot_pop) for p2 in self.itr]
+                    # is the tot_pop # too high?
+                    # also: not guaranteed that the strain being transmitted will actually be in the transmission dist, maybe?
         return self.Rs
 
     def trans(self, idx: int, rpt: int=1):

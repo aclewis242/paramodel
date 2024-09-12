@@ -28,6 +28,7 @@ class individual:
     num_alleles = -1
     all_sel_bias: dict[str, float] = {}
     bias_strength: 1.
+    all_trans_bias: dict[str, float] = {}
 
     def __init__(self, alleles: list[allele]=[], gnt: str='', gdm=wf, tps: list[list[float]]=None, **kwargs):
         '''
@@ -61,6 +62,7 @@ class individual:
         if self.pc_to_transmit > self.pc: self.pc_to_transmit = self.pc
         self.marked_for_death = False
         self.is_new_inf = True
+        self.all_trans_bias: dict[str, float] = {} # are the all_sel_biases at diff memory addresses?
 
     def simPara(self, times: list):
         '''
@@ -273,6 +275,7 @@ class individual:
         'Corrects' for overcounting by rolling a die, with success weighted either by the given strain's frequency or (if blank)
         the number of strains present.
         '''
+        return True
         if sn: return random.random() < self.genotype_freqs[sn]/self.pc
         return random.random() < 1/len(self.getGenotypes())
         # num = 0
@@ -286,6 +289,7 @@ class individual:
         # return num >= 1
     
     def correction_det(self, sn: str=''):
+        # return 1
         if sn: return self.genotype_freqs[sn]/self.pc
         else: return 1/len(self.getGenotypes())
     

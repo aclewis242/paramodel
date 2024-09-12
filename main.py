@@ -52,7 +52,7 @@ HST2 = {
     'pn_full': 'Host 2',
 }
 
-bias_strength = 0.
+bias_strength = 4.
 INDV_VEC = {
     'pc': 12,
     'mut_chance': 4e-3,
@@ -89,14 +89,25 @@ D = allele(char='D', fav_pop='h1', unf_pop='h2', param='itr', fac=0.0)
 D.sel_advs = {'h1': 1.5, 'vec': 1.0}
 D.trans_advs = {'h1': 1.0, 'vec': 1.0}
 
+# print(hex(id(D.sel_advs)))
+# print(hex(id(D.trans_advs)))
+# [print(hex(id(D.adv_type[a_t]))) for a_t in D.adv_type]
+# exit()
+
+### CURRENT TAKEAWAYS
+# - difference between mut and bias
+#   - mixes have a positive impact, non-mixes have a negative impact?
+# - total vec pop declining? (probably not, but keep an eye out for it in bias sims)
+# - probably somewhere in vec
+
 ALLELES = [D]
 
 PARAMS_1 = HST1
 PARAMS_2 = VEC
 PARAMS_3 = HST2
 
-def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=100., nt: float=2.,
-        plot_res: bool=True, t_scale: float=50., do_allele_mod: bool=True, weight_infs: bool=False,):
+def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=500., nt: float=2.,
+        plot_res: bool=True, t_scale: float=100., do_allele_mod: bool=True, weight_infs: bool=False,):
     '''
     Run the simulation.
 

@@ -77,7 +77,7 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
         for sm in s_mdls:
             if sm not in s_mdls_2: s_mdls_2 += [sm]
         s_mdls = s_mdls_2
-        [print(f'{sm} r0: {sm.r0(vec_mdl)}') for sm in s_mdls]
+        # [print(f'{sm} r0: {sm.r0(vec_mdl)}') for sm in s_mdls]
     ts_i = np.array(range(int(nt)))
     ps_init = np.empty(shape=(nt, len(mdls), len(mdls[0].pop.getAllPop())))
     ps = listify(ps_init)
@@ -101,9 +101,18 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
             if p.inf[s] > max_inf:
                 max_inf = p.inf[s]
                 max_strn = s
-        p.inf[max_strn] = 0
-        p.inf[max_strn.lower()] = max_inf
+        # p.inf[max_strn] = 0
+        # p.inf[max_strn.lower()] = max_inf
+        p.inf[max_strn] = max_inf/2
+        p.inf[max_strn.lower()] = max_inf/2
+        for ind in p.individuals[:int(len(p.individuals)/2)]:
+            ind.genotype_freqs[max_strn.upper()] = ind.pc
+            ind.genotype_freqs[max_strn.lower()] = 0
+        random.shuffle(p.individuals)
+        # [print(ind.genotype_freqs) for ind in p.individuals]
+    # exit()
     [p.updateSelBiases(alleles) for p in pops]
+    for p in pops: p.init_pop = p.tot_pop
 
     # [[print(f'{ind.all_sel_bias}, {p}') for ind in p.individuals] for p in pops]
     # exit()
