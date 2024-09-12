@@ -303,9 +303,25 @@ class population:
         self.all_trans_bias: dict[str, float] = {}
         for a in alleles:
             base_sel_adv = a.sel_advs[self.pn]
+            base_trans_adv = a.trans_advs[self.pn]
             self.all_sel_bias[a.char] = base_sel_adv/(base_sel_adv + 1.)
-        for ind in self.indvs: ind.all_sel_bias = self.all_sel_bias.copy()
+            self.all_trans_bias[a.char] = base_trans_adv
+        gtf_vals_wgt = dict.fromkeys(self.inf, 0)
+        for gt in gtf_vals_wgt:
+            alls = [a[0] for a in gt.split('.')]
+            gt_wgt = 1.0
+            for a in alls:
+                if a in self.all_trans_bias: gt_wgt *= self.all_trans_bias[a]
+            gtf_vals_wgt[gt] = 1/gt_wgt
+        self.gtf_wgts = gtf_vals_wgt
+        # print(self.gtf_wgts)
+        for ind in self.indvs:
+            ind.all_sel_bias = self.all_sel_bias.copy()
+            ind.all_trans_bias = self.all_trans_bias.copy()
+            ind.gtf_wgts = self.gtf_wgts.copy()
+        self.indv_params['gtf_wgts'] = self.gtf_wgts
         self.indv_params['all_sel_bias'] = self.all_sel_bias
+        self.indv_params['all_trans_bias'] = self.all_trans_bias
 
     def refresh(self, update: bool=True):
         '''

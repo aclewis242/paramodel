@@ -114,7 +114,7 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
     [p.updateSelBiases(alleles) for p in pops]
     for p in pops: p.init_pop = p.tot_pop
 
-    # [[print(f'{ind.all_sel_bias}, {p}') for ind in p.individuals] for p in pops]
+    # [[print(f'{ind.all_trans_bias}, {p}') for ind in p.individuals] for p in pops]
     # exit()
 
     hpis = []

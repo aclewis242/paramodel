@@ -29,6 +29,7 @@ class individual:
     all_sel_bias: dict[str, float] = {}
     bias_strength: 1.
     all_trans_bias: dict[str, float] = {}
+    gtf_wgts: dict[str, float] = {}
 
     def __init__(self, alleles: list[allele]=[], gnt: str='', gdm=wf, tps: list[list[float]]=None, **kwargs):
         '''
@@ -179,20 +180,30 @@ class individual:
         Returns all present genotypes as a list.
         '''
         return [gt for gt in self.genotype_freqs if self.genotype_freqs[gt]]
+    
+    def getGenotypeTransWeights(self) -> np.ndarray[float]:
+        # print(self.gtf_wgts)
+        # print(self.genotype_freqs)
+        def normDictVals(dct: dict):
+            return normalise(np.array(list(dct.values())))
+        gtf_vals = normDictVals(self.genotype_freqs)
+        gtfs_norm = dictify(self.genotype_freqs.keys(), gtf_vals)
+        gtfs_wgt = {gt: gtfs_norm[gt]**(self.gtf_wgts[gt]**self.bias_strength) for gt in gtfs_norm}
+        # exit()
+        return normDictVals(gtfs_wgt)
 
     def infectMult(self, num: int=1) -> dict[str, int]:
         '''
         Performs multiple infections. Returns a dict of strain to # times infected.
         '''
-        gtf_vals = np.array(list(self.genotype_freqs.values()))
-        return dictify(self.genotype_freqs.keys(), self.rng.multinomial(num, normalise(gtf_vals)))
+        return dictify(self.genotype_freqs.keys(), self.rng.multinomial(num, self.getGenotypeTransWeights()))
 
     def infect(self, gtfs: dict[str, int]={}):
         '''
         Performs an infection.
         '''
         if not gtfs: gtfs = self.genotype_freqs
-        return random.choices(list(gtfs.keys()), [gtf/self.pc for gtf in list(gtfs.values())])[0]
+        return random.choices(list(gtfs.keys()), self.getGenotypeTransWeights())[0]
     
     def getAlleleFreqs(self):
         '''
