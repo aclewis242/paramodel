@@ -126,6 +126,7 @@ class SIR:
                             f.close()
                             if strn in to_infect.keys(): to_infect[strn] += 1
                             else: to_infect[strn] = 1
+                            # does the infect properly consider the macro weights?
                     elif indv.correction(self.sn): pop.infectMix(indv.infectMult(indv.pc_to_transmit))
                 for strn in to_infect: addPopMult(idx, to_infect[strn], strn)
                 return self.pop.getPop(self.sn)

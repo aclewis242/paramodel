@@ -86,19 +86,13 @@ B = allele(char='B', fav_pop='h1', unf_pop='h2', param='itr', fac=0.3)
 C = allele(char='C', fav_pop='h1', unf_pop='h2', param='rr', fac=-0.6)
 D = allele(char='D', fav_pop='h1', unf_pop='h2', param='itr', fac=0.0)
 
-D.sel_advs = {'h1': 1.0, 'vec': 1.0}
+D.sel_advs = {'h1': 0.1, 'vec': 1.0}
 D.trans_advs = {'h1': 1.5, 'vec': 1.0}
 
 # print(hex(id(D.sel_advs)))
 # print(hex(id(D.trans_advs)))
 # [print(hex(id(D.adv_type[a_t]))) for a_t in D.adv_type]
 # exit()
-
-### CURRENT TAKEAWAYS
-# - difference between mut and bias
-#   - mixes have a positive impact, non-mixes have a negative impact?
-# - total vec pop declining? (probably not, but keep an eye out for it in bias sims)
-# - probably somewhere in vec
 
 ALLELES = [D]
 
@@ -216,6 +210,7 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
         plt.legend()
         plt.xlabel('Simulation time')
         plt.ylabel('Population')
+        # plt.gca().set_ylim(bottom=0)
         plt.savefig(f'{fn(mdls[i].pn)}.png')
         if plot_res: plt.show()
         plt.close()

@@ -63,7 +63,7 @@ class individual:
         if self.pc_to_transmit > self.pc: self.pc_to_transmit = self.pc
         self.marked_for_death = False
         self.is_new_inf = True
-        self.all_trans_bias: dict[str, float] = {} # are the all_sel_biases at diff memory addresses?
+        # self.all_trans_bias: dict[str, float] = {} # are the all_sel_biases at diff memory addresses?
 
     def simPara(self, times: list):
         '''

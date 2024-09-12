@@ -101,14 +101,14 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
             if p.inf[s] > max_inf:
                 max_inf = p.inf[s]
                 max_strn = s
-        # p.inf[max_strn] = 0
-        # p.inf[max_strn.lower()] = max_inf
-        p.inf[max_strn] = max_inf/2
-        p.inf[max_strn.lower()] = max_inf/2
-        for ind in p.individuals[:int(len(p.individuals)/2)]:
-            ind.genotype_freqs[max_strn.upper()] = ind.pc
-            ind.genotype_freqs[max_strn.lower()] = 0
-        random.shuffle(p.individuals)
+        p.inf[max_strn] = 0
+        p.inf[max_strn.lower()] = max_inf
+        # p.inf[max_strn] = max_inf/2
+        # p.inf[max_strn.lower()] = max_inf/2
+        # for ind in p.individuals[:int(len(p.individuals)/2)]:
+        #     ind.genotype_freqs[max_strn.upper()] = ind.pc
+        #     ind.genotype_freqs[max_strn.lower()] = 0
+        # random.shuffle(p.individuals)
         # [print(ind.genotype_freqs) for ind in p.individuals]
     # exit()
     [p.updateSelBiases(alleles) for p in pops]
@@ -213,6 +213,8 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
         times[13] += time.time() - tm
         tm = time.time()
         times[14] += time.time() - tm
+        # [[print(f'{ind.all_sel_bias}, {p}') for ind in p.individuals] for p in pops]
+        # exit()
     times[15] -= (sum(times[9:15]) + sum(times[6:8]))
     return ts_i*dt, ps, times, pops, ps_unwgt, vpis, hpis
 
