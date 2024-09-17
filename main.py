@@ -87,7 +87,7 @@ C = allele(char='C', fav_pop='h1', unf_pop='h2', param='rr', fac=-0.6)
 D = allele(char='D', fav_pop='h1', unf_pop='h2', param='itr', fac=0.0)
 
 D.sel_advs = {'h1': 0.1, 'vec': 1.0}
-D.trans_advs = {'h1': 1.5, 'vec': 1.0}
+D.trans_advs = {'h1': 1.0, 'vec': 1.0}
 
 # print(hex(id(D.sel_advs)))
 # print(hex(id(D.trans_advs)))
@@ -132,6 +132,7 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
         para_gens = int((24/nt)/i_params['para_lsp'])
         i_params['para_gens'] = para_gens
         i_params['alleles'] = alleles
+        print(para_gens)
         # i_params['store_chance'] = 5e1/(p_fac*t_scale*nt*i_params['pc'])
     nt = float(int(nt*t_scale))
     # [p0_1, p0_2, p0_3] = [population(p0[i], **INDV) for i in range(3)]

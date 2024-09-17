@@ -91,13 +91,13 @@ class individual:
             times[6] += time.time() - tm
             tm = time.time()
             all_prop = self.bias(new_allele_freqs[a]/self.num_genes, self.all_sel_bias[a])
-            # xs = np.array(range(11))/10
-            # ys = [self.bias(x, a) for x in xs]
-            # # print(self.genotype_freqs)
-            # print(self.all_sel_bias)
-            # plt.plot(xs, ys)
-            # plt.show()
-            # exit()
+            xs = np.array(range(11))/10
+            ys = [self.bias(x, a) for x in xs]
+            # print(self.genotype_freqs)
+            print(self.all_sel_bias)
+            plt.plot(xs, ys)
+            plt.show()
+            exit()
             probs = self.ploidyProbs(all_prop)
             times[7] += time.time() - tm
             tm = time.time()
