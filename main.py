@@ -52,7 +52,6 @@ HST2 = {
     'pn_full': 'Host 2',
 }
 
-bias_strength = 4.
 INDV_VEC = {
     'pc': 12,
     'mut_chance': 4e-3,
@@ -61,20 +60,18 @@ INDV_VEC = {
     'do_sr': False,
     'do_mutation': False,
     'do_indvs': True,
-    'pc_to_transmit': 10,
+    'pc_to_transmit': 20,
     'do_sel_bias': True,
-    'bias_strength': bias_strength,
 }
 INDV_HST = {
-    'pc': 120000000,
+    'pc': int(1.2e6),
     'mut_chance': 8e-6,
     'para_lsp': 2.,
     'is_hap': True,
     'do_sr': False,
-    'do_mutation': False,
+    'do_mutation': True,
     'do_indvs': True,
     'do_sel_bias': True,
-    'bias_strength': bias_strength,
 }
 INDV_HST['pc_to_transmit'] = int(INDV_HST['pc']/2)
 INDVS = [INDV_VEC, INDV_HST]
@@ -86,7 +83,7 @@ B = allele(char='B', fav_pop='h1', unf_pop='h2', param='itr', fac=0.3)
 C = allele(char='C', fav_pop='h1', unf_pop='h2', param='rr', fac=-0.6)
 D = allele(char='D', fav_pop='h1', unf_pop='h2', param='itr', fac=0.0)
 
-D.sel_advs = {'h1': 1.5, 'vec': 1.5}
+D.sel_advs = {'h1': 1.05, 'vec': 1.05}
 D.trans_advs = {'h1': 1.0, 'vec': 1.0}
 
 # print(hex(id(D.sel_advs)))
@@ -100,8 +97,8 @@ PARAMS_1 = HST1
 PARAMS_2 = VEC
 PARAMS_3 = HST2
 
-def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=500., nt: float=2.,
-        plot_res: bool=False, t_scale: float=10., do_allele_mod: bool=True, weight_infs: bool=False,):
+def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=1200., nt: float=2.,
+        plot_res: bool=True, t_scale: float=50., do_allele_mod: bool=True, weight_infs: bool=True, do_mix_start: bool=False,):
     '''
     Run the simulation.
 
@@ -150,7 +147,8 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
     t0 = time.time()
     # mdls = [m1, m2, m3]
     mdls = [m1, m2]
-    ts, ps, times, pops, ps_unwgt, vpis, hpis = simShell(t_max, mdls, nt=nt, alleles=alleles, weight_infs=weight_infs)
+    ts, ps, times, pops, ps_unwgt, vpis, hpis = simShell(t_max, mdls, nt=nt, alleles=alleles, weight_infs=weight_infs,
+                                                         do_mix_start=do_mix_start)
     ex_tm = time.time() - t0
     times_norm = list(100*normalise(np.array(times)))
     print(f'Execution time: {ex_tm}\t\t')
@@ -198,14 +196,15 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
             if '(' in n and ')' in n: gens += [n[n.index('(')+1:n.index(')')]]
             else: gens += [n]
         ps_unwgt_i = np.array([k[i] for k in ps_unwgt])
-        if weight_infs and mdls[i].pop.do_indvs: [plt.plot(ts, ps_unwgt_i[:,j], label=f'{ns[j]} (unweighted)', color=str2Color(gens[j]),
-            alpha=pop2Alpha(ns[j])/4) for j in range(len(ns)) if (ns[j][0] != 'R') and (ns[j][0] != 'S')]
+        # if weight_infs and mdls[i].pop.do_indvs: [plt.plot(ts, ps_unwgt_i[:,j], label=f'{ns[j]} (unweighted)', color=str2Color(gens[j]),
+        #     alpha=pop2Alpha(ns[j])/4) for j in range(len(ns)) if (ns[j][0] != 'R') and (ns[j][0] != 'S')]
         ps_i = np.array([k[i] for k in ps])
         [plt.plot(ts, ps_i[:,j], label=ns[j], color=str2Color(gens[j]), alpha=pop2Alpha(ns[j])) for j in range(len(ns))
          if (ns[j][0] != 'R') and (ns[j][0] != 'S')]
         net_i = vpis
         if mdls[i].pn == 'h1': net_i = hpis
         plt.plot(ts, net_i, label='I (total)')
+        plt.plot(ts, 0*ts, alpha=0.)
         plt.title(f'{mdls[i].pn_full} population ({", ".join(list(settings.values()))})')
         plt.legend()
         plt.xlabel('Simulation time')

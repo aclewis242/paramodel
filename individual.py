@@ -27,7 +27,6 @@ class individual:
     is_new_inf = True
     num_alleles = -1
     all_sel_bias: dict[str, float] = {}
-    bias_strength: 1.
     all_trans_bias: dict[str, float] = {}
     gtf_wgts: dict[str, float] = {}
 
@@ -173,11 +172,12 @@ class individual:
         times[9] += time.time() - tm_bsp - (sum(times) - tm_bsp_sum)
         return times
 
-    def mutate(self):
+    def mutate_old(self):
         '''
         Effects the mutations observed over a single generation.
         '''
-        num_muts = self.rng.binomial(self.pc*self.num_alleles, self.mut_chance)
+        # num_muts = self.rng.binomial(self.pc*self.num_alleles, self.mut_chance)
+        num_muts = self.rng.poisson(self.pc*self.num_alleles*self.mut_chance)
         for i in range(num_muts):
             mut_src = self.infect()
             gnt_split = mut_src.split('.')
@@ -193,6 +193,18 @@ class individual:
             self.genotype_freqs[mut_src] -= 1
             self.genotype_freqs[mut_tgt] += 1
             if self.file is not None: self.file.write('\tmut\n')
+    
+    def mutate(self):
+        if self.num_alleles != 1 or self.is_dip:
+            self.mutate_old()
+            return
+        param_base = self.pc*self.num_alleles*self.mut_chance
+        pre_gtfs = self.genotype_freqs.copy()
+        for gt in self.genotype_freqs:
+            freq = pre_gtfs[gt]/self.pc
+            num_muts = self.rng.poisson(param_base*freq)
+            self.genotype_freqs[gt] -= num_muts
+            self.genotype_freqs[gt.swapcase()] += num_muts
     
     def reproduce(self, s_d: dict[str, int]={}):
         '''
@@ -234,7 +246,7 @@ class individual:
             return normalise(np.array(list(dct.values())))
         gtf_vals = normDictVals(self.genotype_freqs)
         gtfs_norm = dictify(self.genotype_freqs.keys(), gtf_vals)
-        gtfs_wgt = {gt: gtfs_norm[gt]**(self.gtf_wgts[gt]**self.bias_strength) for gt in gtfs_norm}
+        gtfs_wgt = {gt: gtfs_norm[gt]**self.gtf_wgts[gt] for gt in gtfs_norm}
         # exit()
         return normDictVals(gtfs_wgt)
 
@@ -353,9 +365,6 @@ class individual:
     def ploidyProbs(self, a_p: float=0.5):
         if self.is_hap: return [1-a_p, a_p]
         else: return [(1-a_p)**2, 2*a_p*(1-a_p), a_p**2]
-
-    def bias(self, a_p: float, bias_num: float):
-        return a_p**((2*(1-bias_num))**self.bias_strength)
 
     def storeData(self, force: bool=False):
         '''

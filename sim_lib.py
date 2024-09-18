@@ -3,7 +3,7 @@ from allele import *
 import numpy as np
 import time
 
-def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=[], weight_infs: bool=False,):
+def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=[], weight_infs: bool=False, do_mix_start: bool=False,):
     '''
     Manages the time iterations of the simulation.
 
@@ -101,15 +101,17 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
             if p.inf[s] > max_inf:
                 max_inf = p.inf[s]
                 max_strn = s
-        p.inf[max_strn] = 0
-        p.inf[max_strn.lower()] = max_inf
-        # p.inf[max_strn] = max_inf/2
-        # p.inf[max_strn.lower()] = max_inf/2
-        # for ind in p.individuals[:int(len(p.individuals)/2)]:
-        #     ind.genotype_freqs[max_strn.upper()] = ind.pc
-        #     ind.genotype_freqs[max_strn.lower()] = 0
-        # random.shuffle(p.individuals)
-        # [print(ind.genotype_freqs) for ind in p.individuals]
+        if do_mix_start:
+            p.inf[max_strn] = max_inf/2
+            p.inf[max_strn.lower()] = max_inf/2
+            for ind in p.individuals[:int(len(p.individuals)/2)]:
+                ind.genotype_freqs[max_strn.upper()] = ind.pc
+                ind.genotype_freqs[max_strn.lower()] = 0
+            random.shuffle(p.individuals)
+            # [print(ind.genotype_freqs) for ind in p.individuals]
+        else:
+            p.inf[max_strn] = 0
+            p.inf[max_strn.lower()] = max_inf
     # exit()
     [p.updateSelBiases(alleles) for p in pops]
     for p in pops: p.init_pop = p.tot_pop
@@ -190,7 +192,7 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
                     # times[9] += time.time() - tm
                     tm = time.time()
                     post_sp_tm = tm_asp - (times_sum - pre_sp_tm)
-                    times[2] += time.time() - tm
+                    # times[2] += time.time() - tm
                     if indv.is_hap: times[7] += post_sp_tm
                     else: times[6] += post_sp_tm
                     tm = time.time()

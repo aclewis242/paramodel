@@ -342,6 +342,7 @@ class population:
                         f'S:\t{float2SN(self.sus, p=3)}\n',
                         f'\tI\n',
                         '\n'.join([f'{k}:\t{float2SN(self.inf[k])}' for k in self.inf]),
+                        f'\nTotal:\t{self.num_inf}',
                         f'\n\tR\n',
                         '\n'.join([f'{k}:\t{float2SN(self.rec[k])}' for k in self.rec])])
     
@@ -369,10 +370,12 @@ class population:
     
     @property
     def tot_pop(self):
-        I = 0
-        if self.do_indvs: I = len(self.individuals)
-        else: I = sum(self.inf.values())
-        return int(self.sus + I + sum(self.rec.values()))
+        return int(self.sus + self.num_inf + sum(self.rec.values()))
+    
+    @property
+    def num_inf(self):
+        if self.do_indvs: return len(self.individuals)
+        else: return sum(self.inf.values())
 
     def __str__(self):
         return self.pn
