@@ -66,17 +66,17 @@ INDV_VEC = {
     'bias_strength': bias_strength,
 }
 INDV_HST = {
-    'pc': 120,
+    'pc': 120000000,
     'mut_chance': 8e-6,
     'para_lsp': 2.,
     'is_hap': True,
     'do_sr': False,
-    'do_mutation': True,
+    'do_mutation': False,
     'do_indvs': True,
-    'pc_to_transmit': 60,
     'do_sel_bias': True,
     'bias_strength': bias_strength,
 }
+INDV_HST['pc_to_transmit'] = int(INDV_HST['pc']/2)
 INDVS = [INDV_VEC, INDV_HST]
 
 # for p_fac of 5e4, nt 2e4: epidemic params are 4e3, 1e3, 7e1 for ir, rr, wi respectively (stab/epi)
@@ -86,7 +86,7 @@ B = allele(char='B', fav_pop='h1', unf_pop='h2', param='itr', fac=0.3)
 C = allele(char='C', fav_pop='h1', unf_pop='h2', param='rr', fac=-0.6)
 D = allele(char='D', fav_pop='h1', unf_pop='h2', param='itr', fac=0.0)
 
-D.sel_advs = {'h1': 0.1, 'vec': 1.0}
+D.sel_advs = {'h1': 1.5, 'vec': 1.5}
 D.trans_advs = {'h1': 1.0, 'vec': 1.0}
 
 # print(hex(id(D.sel_advs)))
@@ -101,7 +101,7 @@ PARAMS_2 = VEC
 PARAMS_3 = HST2
 
 def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=500., nt: float=2.,
-        plot_res: bool=True, t_scale: float=50., do_allele_mod: bool=True, weight_infs: bool=False,):
+        plot_res: bool=False, t_scale: float=10., do_allele_mod: bool=True, weight_infs: bool=False,):
     '''
     Run the simulation.
 
@@ -132,7 +132,6 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
         para_gens = int((24/nt)/i_params['para_lsp'])
         i_params['para_gens'] = para_gens
         i_params['alleles'] = alleles
-        print(para_gens)
         # i_params['store_chance'] = 5e1/(p_fac*t_scale*nt*i_params['pc'])
     nt = float(int(nt*t_scale))
     # [p0_1, p0_2, p0_3] = [population(p0[i], **INDV) for i in range(3)]
@@ -215,6 +214,15 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
         plt.savefig(f'{fn(mdls[i].pn)}.png')
         if plot_res: plt.show()
         plt.close()
+
+def test():
+    tm = time.time()
+    tm_loop = 0
+    for i in range(10000000):
+        tm_it = time.time()
+        x = 0.8*10
+        tm_loop += time.time() - tm_it
+    return time.time() - tm, tm_loop
 
 if __name__ == '__main__':
     run()

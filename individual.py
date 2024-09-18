@@ -56,10 +56,16 @@ class individual:
         gnts = genGenotypes(alleles, self.is_hap)
         for g in gnts: self.genotype_freqs[g] = 0
         if gnt: self.genotype_freqs[gnt] = self.pc
-        if tps is None: self.trans_ps = gdm(self.num_genes)
-        else: self.trans_ps = tps
+        # if tps is None: self.trans_ps = gdm(self.num_genes)
+        # else: self.trans_ps = tps
+        if self.is_dip:
+            self.gene_range: list[int] = list(range(self.num_genes+1))
+            if tps is None: self.trans_ps = gdm(self.num_genes)
+            else: self.trans_ps = tps
+        else:
+            self.trans_ps = [[]]
+            self.gene_range: list[int] = []
         self.rng = np.random.default_rng()
-        self.gene_range: list[int] = list(range(self.num_genes+1))
         if self.pc_to_transmit > self.pc: self.pc_to_transmit = self.pc
         self.marked_for_death = False
         self.is_new_inf = True
@@ -70,62 +76,101 @@ class individual:
         Simulates the parasites' behavior. (`times` is for speed-recording purposes; refer to sim_lib for details.)
         '''
         for i in range(self.para_gens):
+            tm = time.time()
             if self.do_mutation: self.mutate()
+            times[2] += time.time() - tm
             times = self.genDrift(times)
+            tm = time.time()
             if self.do_sr: self.genotype_freqs = self.reproduce()
+            times[15] += time.time() - tm
         return times
     
     def genDrift(self, times: list):
-        if self.file is not None: self.file.write('\t'.join([str(self.genotype_freqs[g]) for g in self.genotype_freqs])+'\n')
+        # if self.file is not None: self.file.write('\t'.join([str(self.genotype_freqs[g]) for g in self.genotype_freqs])+'\n')
+        tm_bsp_sum = sum(times)
+        tm_bsp = time.time()
         tm = time.time()
         allele_freqs = self.getAlleleFreqs()
-        times[9] += time.time() - tm # kind of expensive
+        # times[9] += time.time() - tm # kind of expensive
+        # tm = time.time()
         new_allele_freqs = allele_freqs.copy()
-        new_genotypes = ['']*self.pc
+        times[5] += time.time() - tm
+        tm = time.time()
+        new_genotypes = []
+        if self.num_alleles != 1: new_genotypes = ['']*self.pc
         curr_ind = len(allele_freqs)
         tba = ''
+        times[1] += time.time() - tm
+        tm_baf = time.time()
+        # tm_baf_sum = sum(times)
         for a in allele_freqs:
+            tm = time.time()
+            # f = open('inf_events_raw.dat', 'a')
+            # f.write('all_freq\n')
+            # f.close()
             curr_ind -= 1
-            tm = time.time()
-            new_allele_freqs[a] = random.choices(self.gene_range, self.trans_ps[allele_freqs[a]])[0]
-            times[6] += time.time() - tm
-            tm = time.time()
-            all_prop = self.bias(new_allele_freqs[a]/self.num_genes, self.all_sel_bias[a])
-            xs = np.array(range(11))/10
-            ys = [self.bias(x, a) for x in xs]
-            # print(self.genotype_freqs)
-            print(self.all_sel_bias)
-            plt.plot(xs, ys)
-            plt.show()
-            exit()
-            probs = self.ploidyProbs(all_prop)
-            times[7] += time.time() - tm
-            tm = time.time()
-            all_dist = self.rng.multinomial(n=self.pc, pvals=probs)
-            times[10] += time.time() - tm # equally kind of expensive
+            if self.is_dip: new_allele_freqs[a] = random.choices(self.gene_range, self.trans_ps[allele_freqs[a]])[0]
+            # times[6] += time.time() - tm
+            # tm = time.time()
+            # all_prop = self.bias(new_allele_freqs[a]/self.num_genes, self.all_sel_bias[a])
+            all_prop = new_allele_freqs[a]/self.num_genes
+            w_avg = self.all_sel_bias[a]*all_prop + (1 - all_prop)
+            all_prop *= self.all_sel_bias[a]/w_avg
+            # xs = np.array(range(11))/10
+            # ys = [self.bias(x, a) for x in xs]
+            # # print(self.genotype_freqs)
+            # print(self.all_sel_bias)
+            # plt.plot(xs, ys)
+            # plt.show()
+            # exit()
             j = 0
-            tm = time.time()
-            for a_d_i in range(self.ploidy+1): # essentially a pc-length for loop
-                for k in range(all_dist[a_d_i]):
-                    if a_d_i == 0: tba = self.ploidy*chr(ord(a)+32) # changes char to lowercase quicker than .lower() method
-                    elif a_d_i == 1:
-                        if self.is_hap: tba = a
-                        else: tba = (a + chr(ord(a)+32))
-                    elif a_d_i == 2: tba = 2*a
-                    if curr_ind: tba += '.'
-                    new_genotypes[j] += tba
-                    j += 1
-            times[11] += time.time() - tm # most expensive but not by a huge amount
-            tm = time.time()
-            if curr_ind: random.shuffle(new_genotypes)
-            times[12] += time.time() - tm # second most expensive
-        self.genotype_freqs = self.genotype_freqs.fromkeys(self.genotype_freqs, 0)
+            times[14] += time.time() - tm
+            if self.is_hap and self.num_alleles == 1:
+                tm = time.time()
+                self.genotype_freqs[a] = round(all_prop*self.pc)
+                self.genotype_freqs[a.lower()] = round((1-all_prop)*self.pc)
+                times[13] += time.time() - tm
+            else:
+                tm = time.time()
+                probs = self.ploidyProbs(all_prop)
+                # times[7] += time.time() - tm
+                # tm = time.time()
+                all_dist = self.rng.multinomial(n=self.pc, pvals=probs)
+                times[10] += time.time() - tm
+                if self.num_alleles == 1:
+                    tm = time.time()
+                    self.genotype_freqs[self.ploidy*chr(ord(a)+32)] = all_dist[0]
+                    self.genotype_freqs[a + chr(ord(a)+32)] = all_dist[1]
+                    self.genotype_freqs[2*a] = all_dist[2]
+                    times[11] += time.time() - tm # equally kind of expensive
+                else:
+                    print('e')
+                    exit()
+                    tm = time.time()
+                    for a_d_i in range(self.ploidy+1): # essentially a pc-length for loop
+                        for k in range(all_dist[a_d_i]):
+                            if a_d_i == 0: tba = self.ploidy*chr(ord(a)+32) # changes char to lowercase quicker than .lower() method
+                            elif a_d_i == 1:
+                                if self.is_hap: tba = a
+                                else: tba = (a + chr(ord(a)+32))
+                            elif a_d_i == 2: tba = 2*a
+                            if curr_ind: tba += '.'
+                            new_genotypes[j] += tba
+                            j += 1
+                    # times[11] += time.time() - tm # most expensive but not by a huge amount
+                    tm = time.time()
+                    if curr_ind: random.shuffle(new_genotypes)
+                    # times[12] += time.time() - tm # second most expensive
+                    tm = time.time()
+                    self.genotype_freqs = self.genotype_freqs.fromkeys(self.genotype_freqs, 0)
+                    for n_g in new_genotypes: self.genotype_freqs[n_g] += 1
+                    times[14] += time.time() - tm
+        # tm_aaf_sum = sum(times)
+        # times[2] += time.time() - tm_baf - (tm_aaf_sum - tm_baf_sum)
         tm = time.time()
-        for n_g in new_genotypes: self.genotype_freqs[n_g] += 1
-        times[14] += time.time() - tm
-        tm = time.time()
-        times[13] += time.time() - tm
         self.storeData()
+        times[3] += time.time() - tm
+        times[9] += time.time() - tm_bsp - (sum(times) - tm_bsp_sum)
         return times
 
     def mutate(self):
@@ -154,6 +199,7 @@ class individual:
         Models sexual reproduction based on the given strain distribution. Note: haploid input distributions are okay, but it necessarily
         returns a diploid output distribution!
         '''
+        print('sr')
         if not s_d: s_d = self.genotype_freqs
         if (not self.is_new_inf or self.is_hap) or not self.do_sr: return s_d
         new_dist = self.matchDist(dict.fromkeys(s_d, 0))
