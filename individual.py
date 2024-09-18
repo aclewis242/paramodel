@@ -81,7 +81,7 @@ class individual:
             times = self.genDrift(times)
             tm = time.time()
             if self.do_sr: self.genotype_freqs = self.reproduce()
-            times[15] += time.time() - tm
+            times[1] += time.time() - tm
         return times
     
     def genDrift(self, times: list):
@@ -93,7 +93,7 @@ class individual:
         # times[9] += time.time() - tm # kind of expensive
         # tm = time.time()
         new_allele_freqs = allele_freqs.copy()
-        times[5] += time.time() - tm
+        times[15] += time.time() - tm
         tm = time.time()
         new_genotypes = []
         if self.num_alleles != 1: new_genotypes = ['']*self.pc
@@ -103,12 +103,13 @@ class individual:
         tm_baf = time.time()
         # tm_baf_sum = sum(times)
         for a in allele_freqs:
-            tm = time.time()
             # f = open('inf_events_raw.dat', 'a')
             # f.write('all_freq\n')
             # f.close()
             curr_ind -= 1
+            tm = time.time()
             if self.is_dip: new_allele_freqs[a] = random.choices(self.gene_range, self.trans_ps[allele_freqs[a]])[0]
+            times[14] += time.time() - tm
             # times[6] += time.time() - tm
             # tm = time.time()
             # all_prop = self.bias(new_allele_freqs[a]/self.num_genes, self.all_sel_bias[a])
@@ -123,7 +124,6 @@ class individual:
             # plt.show()
             # exit()
             j = 0
-            times[14] += time.time() - tm
             if self.is_hap and self.num_alleles == 1:
                 tm = time.time()
                 self.genotype_freqs[a] = round(all_prop*self.pc)

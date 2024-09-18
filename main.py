@@ -83,7 +83,9 @@ B = allele(char='B', fav_pop='h1', unf_pop='h2', param='itr', fac=0.3)
 C = allele(char='C', fav_pop='h1', unf_pop='h2', param='rr', fac=-0.6)
 D = allele(char='D', fav_pop='h1', unf_pop='h2', param='itr', fac=0.0)
 
-D.sel_advs = {'h1': 1.05, 'vec': 1.05}
+mut_adv = 1.05
+wld_adv = 1/mut_adv
+D.sel_advs = {'h1': 1.05, 'vec': 0.1}
 D.trans_advs = {'h1': 1.0, 'vec': 1.0}
 
 # print(hex(id(D.sel_advs)))
@@ -98,7 +100,7 @@ PARAMS_2 = VEC
 PARAMS_3 = HST2
 
 def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=1200., nt: float=2.,
-        plot_res: bool=True, t_scale: float=50., do_allele_mod: bool=True, weight_infs: bool=True, do_mix_start: bool=False,):
+        plot_res: bool=True, t_scale: float=50., do_allele_mod: bool=True, weight_infs: bool=True, do_mix_start: bool=True,):
     '''
     Run the simulation.
 
