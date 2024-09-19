@@ -26,6 +26,15 @@ def float2SN(f: float, p: int=2):
         pwr = np.floor(np.log10(f))
         return f'{int(f/(10**(pwr-p)))/(10**p)}e{int(pwr)}'
 
+def roundNum(f: float, prec: int=2):
+    return round(f*(10**prec))/(10**prec)
+
+def normPercentList(l: list[float]) -> list[float]:
+    return list(100*normalise(np.array(l)))
+
+def printFloatList(l: list[float]):
+    [print(f'{i}:\t{roundNum(l[i])}') for i in range(len(l))]
+
 def printMat(m: list[list]):
     '''
     Prints the given 2d matrix (usually of transition probabilities, though not necessarily) in an easier-to-read fashion.

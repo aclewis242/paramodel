@@ -4,8 +4,6 @@ from allele import *
 import random
 import time
 
-import matplotlib.pyplot as plt # temp
-
 class individual:
     '''
     The class for explicitly-modelled individuals.
@@ -30,7 +28,7 @@ class individual:
     all_trans_bias: dict[str, float] = {}
     gtf_wgts: dict[str, float] = {}
 
-    def __init__(self, alleles: list[allele]=[], gnt: str='', gdm=wf, tps: list[list[float]]=None, **kwargs):
+    def __init__(self, gnts: list[str]=[], gnt: str='', gdm=wf, tps: list[list[float]]=[], **kwargs):
         '''
         Initialises the individual.
 
@@ -50,16 +48,17 @@ class individual:
         - `store_chance`: The chance that the individual's parasites' genetic makeup will be recorded in a file
         '''
         self.__dict__.update(kwargs)
-        self.genotype_freqs: dict[str, int] = {}
-        self.num_alleles = len(alleles)
-        gnts = genGenotypes(alleles, self.is_hap)
-        for g in gnts: self.genotype_freqs[g] = 0
+        # self.genotype_freqs: dict[str, int] = {}
+        # self.num_alleles = len(alleles)
+        # gnts = genGenotypes(alleles, self.is_hap)
+        # if self.is_dip:
+        #     print(gnts)
+        #     exit()
+        self.genotype_freqs = dict.fromkeys(gnts, 0)
         if gnt: self.genotype_freqs[gnt] = self.pc
-        # if tps is None: self.trans_ps = gdm(self.num_genes)
-        # else: self.trans_ps = tps
         if self.is_dip:
             self.gene_range: list[int] = list(range(self.num_genes+1))
-            if tps is None: self.trans_ps = gdm(self.num_genes)
+            if not tps: self.trans_ps = gdm(self.num_genes)
             else: self.trans_ps = tps
         else:
             self.trans_ps = [[]]
@@ -68,7 +67,6 @@ class individual:
         if self.pc_to_transmit > self.pc: self.pc_to_transmit = self.pc
         self.marked_for_death = False
         self.is_new_inf = True
-        # self.all_trans_bias: dict[str, float] = {} # are the all_sel_biases at diff memory addresses?
 
     def simPara(self, times: list):
         '''
@@ -77,63 +75,40 @@ class individual:
         for i in range(self.para_gens):
             tm = time.time()
             if self.do_mutation: self.mutate()
-            times[2] += time.time() - tm
+            times[13] += time.time() - tm
             times = self.genDrift(times)
-            tm = time.time()
             if self.do_sr: self.genotype_freqs = self.reproduce()
-            times[1] += time.time() - tm
         return times
     
     def genDrift(self, times: list):
-        # if self.file is not None: self.file.write('\t'.join([str(self.genotype_freqs[g]) for g in self.genotype_freqs])+'\n')
-        tm_bsp_sum = sum(times)
-        tm_bsp = time.time()
+        if self.file is not None: self.file.write('\t'.join([str(self.genotype_freqs[g]) for g in self.genotype_freqs])+'\n')
         tm = time.time()
         allele_freqs = self.getAlleleFreqs()
-        # times[9] += time.time() - tm # kind of expensive
-        # tm = time.time()
-        new_allele_freqs = allele_freqs.copy()
-        times[15] += time.time() - tm
+        times[6] += time.time() - tm
         tm = time.time()
         new_genotypes = []
         if self.num_alleles != 1: new_genotypes = ['']*self.pc
         curr_ind = len(allele_freqs)
         tba = ''
-        times[1] += time.time() - tm
-        tm_baf = time.time()
-        # tm_baf_sum = sum(times)
+        new_allele_freqs = allele_freqs.copy()
+        times[7] += time.time() - tm
         for a in allele_freqs:
-            # f = open('inf_events_raw.dat', 'a')
-            # f.write('all_freq\n')
-            # f.close()
             curr_ind -= 1
             tm = time.time()
             if self.is_dip: new_allele_freqs[a] = random.choices(self.gene_range, self.trans_ps[allele_freqs[a]])[0]
-            times[14] += time.time() - tm
-            # times[6] += time.time() - tm
-            # tm = time.time()
-            # all_prop = self.bias(new_allele_freqs[a]/self.num_genes, self.all_sel_bias[a])
+            times[8] += time.time() - tm
             all_prop = new_allele_freqs[a]/self.num_genes
             w_avg = self.all_sel_bias[a]*all_prop + (1 - all_prop)
             all_prop *= self.all_sel_bias[a]/w_avg
-            # xs = np.array(range(11))/10
-            # ys = [self.bias(x, a) for x in xs]
-            # # print(self.genotype_freqs)
-            # print(self.all_sel_bias)
-            # plt.plot(xs, ys)
-            # plt.show()
-            # exit()
             j = 0
             if self.is_hap and self.num_alleles == 1:
                 tm = time.time()
                 self.genotype_freqs[a] = round(all_prop*self.pc)
                 self.genotype_freqs[a.lower()] = round((1-all_prop)*self.pc)
-                times[13] += time.time() - tm
+                times[9] += time.time() - tm
             else:
                 tm = time.time()
                 probs = self.ploidyProbs(all_prop)
-                # times[7] += time.time() - tm
-                # tm = time.time()
                 all_dist = self.rng.multinomial(n=self.pc, pvals=probs)
                 times[10] += time.time() - tm
                 if self.num_alleles == 1:
@@ -142,9 +117,7 @@ class individual:
                     self.genotype_freqs[a + chr(ord(a)+32)] = all_dist[1]
                     self.genotype_freqs[2*a] = all_dist[2]
                     times[11] += time.time() - tm # equally kind of expensive
-                else:
-                    print('e')
-                    exit()
+                else: # only used for multi-locus case, which (at least right now) should never arise. will greatly reduce speed
                     tm = time.time()
                     for a_d_i in range(self.ploidy+1): # essentially a pc-length for loop
                         for k in range(all_dist[a_d_i]):
@@ -164,12 +137,9 @@ class individual:
                     self.genotype_freqs = self.genotype_freqs.fromkeys(self.genotype_freqs, 0)
                     for n_g in new_genotypes: self.genotype_freqs[n_g] += 1
                     times[14] += time.time() - tm
-        # tm_aaf_sum = sum(times)
-        # times[2] += time.time() - tm_baf - (tm_aaf_sum - tm_baf_sum)
         tm = time.time()
         self.storeData()
-        times[3] += time.time() - tm
-        times[9] += time.time() - tm_bsp - (sum(times) - tm_bsp_sum)
+        times[12] += time.time() - tm
         return times
 
     def mutate_old(self):
@@ -210,6 +180,8 @@ class individual:
         '''
         Models sexual reproduction based on the given strain distribution. Note: haploid input distributions are okay, but it necessarily
         returns a diploid output distribution!
+
+        (Currently deprecated)
         '''
         print('sr')
         if not s_d: s_d = self.genotype_freqs
@@ -233,6 +205,26 @@ class individual:
             self.file.write(f'sr: {s_d} -> {new_dist}\n')
         return new_dist
 
+    def getAlleleFreqs(self):
+        '''
+        Gets the frequencies of each allele in the genotypes present in the individual's parasites. Used primarily for genetic drift.
+        '''
+        rv: dict[str, int] = {}
+        if self.num_alleles != 1:
+            for g in self.genotype_freqs:
+                genes = g.split('.')
+                for gn in genes:
+                    locus = gn[0].upper() # records mutated (uppercase) allele explicitly, wild (lowercase) implicitly
+                    count = gn.count(locus)
+                    if locus not in rv: rv[locus] = count*self.genotype_freqs[g]
+                    else: rv[locus] += count*self.genotype_freqs[g]
+        else:
+            keys = list(self.genotype_freqs.keys())
+            # Note: assumes genotypes are ordered from more uppercase to less uppercase (D-d, DD-Dd-dd)!
+            if self.is_hap: rv[keys[0]] = self.genotype_freqs[keys[0]]
+            else: rv[keys[0][0]] = 2*self.genotype_freqs[keys[0]] + self.genotype_freqs[keys[1]]
+        return rv
+
     def getGenotypes(self):
         '''
         Returns all present genotypes as a list.
@@ -240,15 +232,12 @@ class individual:
         return [gt for gt in self.genotype_freqs if self.genotype_freqs[gt]]
     
     def getGenotypeTransWeights(self) -> np.ndarray[float]:
-        # print(self.gtf_wgts)
-        # print(self.genotype_freqs)
-        def normDictVals(dct: dict):
-            return normalise(np.array(list(dct.values())))
-        gtf_vals = normDictVals(self.genotype_freqs)
-        gtfs_norm = dictify(self.genotype_freqs.keys(), gtf_vals)
-        gtfs_wgt = {gt: gtfs_norm[gt]**self.gtf_wgts[gt] for gt in gtfs_norm}
-        # exit()
-        return normDictVals(gtfs_wgt)
+        # def normDictVals(dct: dict):
+        #     return normalise(np.array(list(dct.values())))
+        # gtf_vals = normDictVals(self.genotype_freqs)
+        # gtfs_norm = dictify(self.genotype_freqs.keys(), gtf_vals)
+        # gtfs_wgt = {gt: gtfs_norm[gt]**self.gtf_wgts[gt] for gt in gtfs_norm}
+        return normalise(np.array(list(self.genotype_freqs.values())))
 
     def infectMult(self, num: int=1) -> dict[str, int]:
         '''
@@ -263,20 +252,6 @@ class individual:
         if not gtfs: gtfs = self.genotype_freqs
         return random.choices(list(gtfs.keys()), self.getGenotypeTransWeights())[0]
     
-    def getAlleleFreqs(self):
-        '''
-        Gets the frequencies of each allele in the genotypes present in the individual's parasites. Used primarily for genetic drift.
-        '''
-        rv: dict[str, int] = {}
-        for g in self.genotype_freqs:
-            genes = g.split('.')
-            for gn in genes:
-                locus = gn[0].upper() # records 'dominant' (or just capital allele in haploid case) explicitly, 'recessive' implicitly
-                count = gn.count(locus)
-                if locus not in rv: rv[locus] = count*self.genotype_freqs[g]
-                else: rv[locus] += count*self.genotype_freqs[g]
-        return rv
-    
     def infectSelf(self, pc_num: int, strn: str):
         '''
         Infects the individual with the given strain using the given number of parasites.
@@ -285,11 +260,15 @@ class individual:
         if pc_num > self.pc: pc_num = self.pc
         old_gnts = self.getGenotypes()
         to_replace = self.infectMult(pc_num)
+        strn_match = self.match(strn)
         for stn in to_replace:
             self.genotype_freqs[stn] -= to_replace[stn]
-            self.genotype_freqs[self.match(strn)] += to_replace[stn]
+            self.genotype_freqs[strn_match] += to_replace[stn]
+        # if sum(self.genotype_freqs.values()) != self.pc:
+        #     print(f'(inside indv) pc {self.pc}, gtfs {self.genotype_freqs}. submitted strain {strn}, pc_num {pc_num}')
+        #     exit()
         if sum(self.genotype_freqs.values()) != self.pc:
-            print(f'(inside indv) pc {self.pc}, gtfs {self.genotype_freqs}. submitted strain {strn}, pc_num {pc_num}')
+            print(f'(inside infectSelf) pc {self.pc}, gtfs {self.genotype_freqs} (sum {sum(self.genotype_freqs.values())})')
             exit()
         return list(set(old_gnts) - set(self.getGenotypes()))
     
@@ -297,7 +276,7 @@ class individual:
         '''
         Infects the individual with the given strain distribution.
         '''
-        if self.file is not None: self.file.write('\tinfectSelfMult\n')
+        # if self.file is not None: self.file.write('\tinfectSelfMult\n')
         if self.do_sr:
             self.is_new_inf = True
             mix = self.reproduce(mix)
@@ -310,7 +289,7 @@ class individual:
         '''
         Sets the individual's parasite distribution to the given strain distribution.
         '''
-        if self.file is not None: self.file.write('\tsetToMix\n')
+        # if self.file is not None: self.file.write('\tsetToMix\n')
         pc_transmitted = sum(mix.values())
         rem = 0.
         matched = ''
@@ -322,9 +301,9 @@ class individual:
             rem = amt_raw - amt
             self.genotype_freqs[matched] += amt
         if rem > 0.999: self.genotype_freqs[matched] += 1
-        if sum(self.genotype_freqs.values()) != self.pc:
-            print(f'(inside s2mix) pc {self.pc}, gtfs {self.genotype_freqs}. submitted mix {mix}')
-            exit()
+        # if sum(self.genotype_freqs.values()) != self.pc:
+        #     print(f'(inside s2mix) pc {self.pc}, gtfs {self.genotype_freqs}. submitted mix {mix}')
+        #     exit()
 
     def match(self, s2m: str):
         '''
@@ -339,26 +318,7 @@ class individual:
         for s in sd2m: new_dist[self.match(s)] += sd2m[s]
         return new_dist
     
-    def correction(self, sn: str=''):
-        '''
-        'Corrects' for overcounting by rolling a die, with success weighted either by the given strain's frequency or (if blank)
-        the number of strains present.
-        '''
-        return True
-        if sn: return random.random() < self.genotype_freqs[sn]/self.pc
-        return random.random() < 1/len(self.getGenotypes())
-        # num = 0
-        # if sn: num = self.genotype_freqs[sn]/self.pc
-        # else: num = 1/len(self.getGenotypes())
-        # f = open('anti_stoch.dat')
-        # num += float(f.readline())
-        # f.close()
-        # f = open('anti_stoch.dat', 'w')
-        # f.write(str(num%1))
-        # return num >= 1
-    
     def correction_det(self, sn: str=''):
-        # return 1
         if sn: return self.genotype_freqs[sn]/self.pc
         else: return 1/len(self.getGenotypes())
     
@@ -398,9 +358,7 @@ class individual:
         return self.pc*self.ploidy
     
     def __str__(self):
-        hapdip = 'di'
-        if self.is_hap: hapdip = 'ha'
-        return f'{hapdip}ploid'
+        return f'{self.genotype_freqs}'
     
     def __repr__(self):
         return self.__str__()

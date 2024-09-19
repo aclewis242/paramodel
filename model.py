@@ -17,6 +17,7 @@ class SIR:
     rr = -1.0
     wi = -1.0
     itr: dict[population, float] = {}
+    itr_keys: list[population] = []
     mr = 0.0
     dt = 0.0
     bds = -1.0
@@ -59,6 +60,7 @@ class SIR:
         E7 = [1, 0, -1] # Waning immunity
         self.Es = [E1, E2, E3, E4, E5, E6, E7, E1, E1, E1] # first E1 is 'legacy'
         self.num_Es = len(self.Es)
+        self.itr_keys = list(self.itr.keys())
         self.setRs()
 
     def setRs(self):
@@ -72,28 +74,22 @@ class SIR:
         N = S + I + R
         if not N: return [0. for r in self.Rs]
         self.bds = self.bd/len(self.pop.inf)
-        I_BD = 0
-        I_RR = 0
+        I_UW = 0
+        I_WS = 0
         inf_indvs = self.pop.getSusInf(self.sn, is_present=True)
-        # if len(inf_indvs) != I and I != 100:
-        #     print(f'{len(inf_indvs)}, {I}')
-        #     exit()
         for ind in inf_indvs:
-            I_BD += ind.correction_det()
-            I_RR += ind.correction_det(sn=self.sn)
-        # I_BD = int(I_BD)
-        # I_RR = int(I_RR)
-        # seemingly best to use I (not I_BD), I_RR
+            I_UW += ind.correction_det()            # unweighted infections (simple 'yes/no' on strain presence)
+            I_WS += ind.correction_det(sn=self.sn)  # weighted according to how prevalent the strain is inside the indv
         self.Rs = [N*self.bd*0,     # 'legacy', since births are now pop-delineated (like deaths always were)
-                    self.ir*S*I/N,
-                    self.rr*I_RR,
+                    self.ir*S*I/N,  # also 'legacy' (infections are now handled by vectors, not intra-pop things)
+                    self.rr*I_WS,
                     self.bds*S,
-                    self.bd*I_BD,
+                    self.bd*I_UW,
                     self.bd*R,
                     self.wi*R,
                     self.bds*S,
-                    self.bd*I_BD,
-                    self.bd*R] + [self.itr[p2]*I_RR*(p2.sus+p2.getSusInfNum(self.sn))/(self.pop.tot_pop+p2.tot_pop) for p2 in self.itr]
+                    self.bd*I_UW,
+                    self.bd*R] + [self.itr[p2]*I_WS*(p2.sus+p2.getSusInfNum(self.sn))/(self.pop.tot_pop+p2.tot_pop) for p2 in self.itr]
                     # is the tot_pop # too high?
                     # also: not guaranteed that the strain being transmitted will actually be in the transmission dist, maybe?
         return self.Rs
@@ -111,39 +107,25 @@ class SIR:
         def addPopMult(idx, rpt, sn):
             pop.addPop(list(map(lambda x: float(rpt)*x, self.Es[idx])), sn, pc_trans_src)
         if idx >= self.num_Es:
-            pop = list(self.itr.keys())[idx-self.num_Es]
+            # pop = list(self.itr.keys())[idx-self.num_Es]
+            pop = self.itr_keys[idx-self.num_Es]
             idx = 1
-            if self.pop.individuals: # consider moving to a bool (do_indvs) for speed
+            if self.pop.do_indvs:
                 to_infect = {}
-                for i in range(int(rpt)):
-                    indv = random.choice(self.pop.individuals)
+                for i in range(int(rpt)): # consider doing a random list earlier (no risk of double-selecting)
                     # potential speed increase: run infectMult earlier, feed into normal way if all same gt
-                    if not (self.pop.do_mixed_infs and pop.do_mixed_infs) or len(indv.getGenotypes()) == 1:
-                        if indv.correction(self.sn):
-                            strn = indv.infect()
-                            f = open('inf_events_raw.dat', 'a')
-                            f.write(f'gtfs {indv.genotype_freqs} -> {strn}\n')
-                            f.close()
-                            if strn in to_infect.keys(): to_infect[strn] += 1
-                            else: to_infect[strn] = 1
-                            # does the infect properly consider the macro weights?
-                    elif indv.correction(self.sn): pop.infectMix(indv.infectMult(indv.pc_to_transmit))
+                    indv = random.choice(self.pop.individuals)
+                    if len(indv.getGenotypes()) == 1:
+                        strn = indv.infect()
+                        # f = open('inf_events_raw.dat', 'a')
+                        # f.write(f'gtfs {indv.genotype_freqs} -> {strn}\n')
+                        # f.close()
+                        if strn in to_infect: to_infect[strn] += 1
+                        else: to_infect[strn] = 1
+                        # does the infect properly consider the macro weights?
+                    else: pop.infectMix(indv.infectMult(indv.pc_to_transmit))
                 for strn in to_infect: addPopMult(idx, to_infect[strn], strn)
                 return self.pop.getPop(self.sn)
-        elif (idx == 2 or idx == 8) and pop.do_indvs:
-            # note that this solution to the unbalanced inf births/deaths problem is adequate, not perfect
-            random.shuffle(pop.individuals)
-            chng = 0
-            for indv in pop.individuals[:int(rpt)]: chng += indv.correction(self.sn*(idx==2))
-            if idx == 2:
-                f = open('inf_events_raw.dat', 'a')
-                for indv in pop.individuals[:int(rpt)]:
-                    f.write(f'recover {indv.genotype_freqs}\n')
-                    f.write(f'corr chance ({self.sn}): {sum([indv.correction(self.sn*(idx==2)) for i in range(100)])/100}\n')
-                    f.write(f'recover\n')
-                f.write(f'chng: {chng}, rpt: {rpt}\n')
-                f.close()
-            rpt = chng
         addPopMult(idx, rpt, self.sn)
         return self.pop.getPop(self.sn)
     
@@ -153,6 +135,7 @@ class SIR:
         '''
         new_mdl = SIR(self.pop, sn=nsn, **self.__dict__)
         new_mdl.itr = dict(new_mdl.itr)
+        new_mdl.itr_keys = list(new_mdl.itr.keys())
         return new_mdl
     
     def mutate(self, param: str, fac: float, vec: 'SIR'=None):
@@ -193,31 +176,18 @@ class SIR:
         '''
         new_model = self.newStrain(g)
         new_model.genotype = g
-        def effectMutation(al: allele, mdl: 'SIR', v_m: 'SIR'=vec):
-            if al.fav_pop == mdl.pn: mdl.mutate(al.param, 1+al.fac, v_m)
-            if al.unf_pop == mdl.pn: mdl.mutate(al.param, 1/(1+al.fac), v_m)
-            return mdl
         for a in alleles:
             if a.char in g:
-                new_model = effectMutation(a, new_model)
-                # if vec is not None:
-                #     temp_mdl = self.newStrain(g)
-                #     temp_mdl.r0(vec, set_biases=True, sn=a.locus)
-                #     effectMutation(a, temp_mdl, v_m=None).r0(vec, set_biases=True, sn=a.char)
+                if a.fav_pop == new_model.pn: new_model.mutate(a.param, 1+a.fac, vec)
+                if a.unf_pop == new_model.pn: new_model.mutate(a.param, 1/(1+a.fac), vec)
         return new_model
 
-    def r0(self, vec_mdl: 'SIR', set_biases: bool=False, sn: str='') -> float:
+    def r0(self, vec_mdl: 'SIR') -> float:
         '''
         Estimates R0 for the given model. Meant to be more a vague guideline than a hard and fast rule. Takes the corresponding (same strain)
         vector model as an input.
         '''
-        r0_val = (vec_mdl.pop.tot_pop/self.pop.tot_pop)*self.itr[vec_mdl.pop]*vec_mdl.itr[self.pop]/(self.rr*vec_mdl.bd)
-        # if set_biases:
-        #     if not sn: sn = self.sn
-        #     self.pop.all_sel_bias[sn] = r0_val
-        #     if sn in vec_mdl.pop.sel_bias_lst: vec_mdl.pop.sel_bias_lst[sn] += [r0_val]
-        #     else: vec_mdl.pop.sel_bias_lst[sn] = [r0_val]
-        return r0_val
+        return (vec_mdl.pop.tot_pop/self.pop.tot_pop)*self.itr[vec_mdl.pop]*vec_mdl.itr[self.pop]/(self.rr*vec_mdl.bd)
 
     def printParams(self):
         '''

@@ -40,6 +40,8 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
         for m in mdls: # vec mdl is assumed to be first
             gt = genotypes
             if m.is_vector and is_hyb: gt = genotypes_dip
+            # print(gt)
+            m.pop.gnts = gt.copy()
             gt.reverse() # to put 'recessive' (small) first, as it's assumed to be the 'wild' type
             for g in gt:
                 vec_mdls = [None]
@@ -112,12 +114,10 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
         else:
             p.inf[max_strn] = 0
             p.inf[max_strn.lower()] = max_inf
-    # exit()
     [p.updateSelBiases(alleles) for p in pops]
-    for p in pops: p.init_pop = p.tot_pop
-
-    # [[print(f'{ind.all_sel_bias}, {p}') for ind in p.individuals] for p in pops]
-    # exit()
+    for p in pops:
+        p.init_pop = p.tot_pop
+        if p.individuals: p.trans_ps = p.individuals[0].trans_ps
 
     hpis = []
     vpis = []
@@ -127,77 +127,41 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
             mdls[j].setRs()
             for k in range(num_Rs):
                 all_Rs[j*num_Rs+k] = mdls[j].Rs[k]
-        # if not p.is_vector and p.tot_pop != 2101:
-        #     print(f'\n\nmoved from host pop {old_tot_pop} to {p.tot_pop} after setting rs\n\n')
-        #     exit()
+        sum_Rs = sum(all_Rs)
+        if not sum_Rs: break
         times[0] += time.time() - tm # a little expensive. scales poorly with simulation complexity
         tm = time.time()
-        sum_Rs = sum(all_Rs)
-        # times[1] += time.time() - tm
-        tm = time.time()
-        if not sum_Rs: break
-        # times[2] += time.time() - tm
-        tm = time.time()
         Xs = adaptSim(all_Rs/sum_Rs, sum_Rs, dt)
-        # if not p.is_vector and p.tot_pop != 2101:
-        #     print(f'\n\nmoved from host pop {old_tot_pop} to {p.tot_pop} after adaptsim\n\n')
-        #     exit()
-        # times[3] += time.time() - tm # most expensive
+        times[1] += time.time() - tm # most expensive
         for i_m in range(num_mdls):
             for i_r in range(num_Rs):
                 tm = time.time()
                 rpt = Xs[i_m*num_Rs+i_r]
                 if rpt: mdls[i_m].trans(i_r, rpt)
-                times[4] += time.time() - tm # 2nd most expensive
+                times[2] += time.time() - tm # 2nd most expensive
         tm = time.time()
-        # if not p.is_vector and p.tot_pop != 2101:
-        #     print(f'\n\nmoved from host pop {old_tot_pop} to {p.tot_pop} after trans\n\n')
-        #     exit()
         for i_p in range(num_pops):
             ps[i][i_p] = pops[i_p].getAllPop(weight=weight_infs)
             ps_unwgt[i][i_p] = pops[i_p].getAllPop()
-        # if not p.is_vector and p.tot_pop != 2101:
-        #     print(f'\n\nmoved from host pop {old_tot_pop} to {p.tot_pop} after weight\n\n')
-        #     exit()
-        # times[5] += time.time() - tm
-        # All remaining measurement blocks are left over from a more complicated and inefficient time
-        # Preserved in case they prove useful sometime in the future
-        tm = time.time()
-        times[6] += time.time() - tm
-        tm_old = time.time()
+        times[3] += time.time() - tm
         for p in pops:
-            # p.refresh(update=True)
-            # pre_ind_tm = sum(times)
             alive: list[individual] = []
-            old_tot_pop = p.tot_pop
+            tm = time.time()
+            random.shuffle(p.individuals)
+            times[4] += time.time() - tm
             for indv in p.individuals:
-                # indv = p.individuals[indv_i]
-                tm = time.time()
                 if sum(indv.genotype_freqs.values()) != indv.pc:
-                    print(f'indv with {indv.pc} parasites has gtfs {indv.genotype_freqs}')
+                    print(f'indv with {indv.pc} parasites has gtfs {indv.genotype_freqs} (sum {sum(indv.genotype_freqs.values())})')
                     exit()
-                times[12] += time.time() - tm
                 if not indv.marked_for_death:
                     tm = time.time()
                     init_gts = indv.getGenotypes()
-                    times[8] += time.time() - tm
+                    times[5] += time.time() - tm
                     tm = time.time()
-                    pre_sp_tm = sum(times)
-                    # times[9] += time.time() - tm
-                    tm_sp = time.time()
                     times = indv.simPara(times)
-                    tm_asp = time.time() - tm_sp
-                    tm = time.time()
-                    times_sum = sum(times)
-                    # times[9] += time.time() - tm
-                    tm = time.time()
-                    post_sp_tm = tm_asp - (times_sum - pre_sp_tm)
-                    # times[2] += time.time() - tm
-                    if indv.is_hap: times[7] += post_sp_tm
-                    else: times[6] += post_sp_tm
                     tm = time.time()
                     fin_gts = indv.getGenotypes()
-                    times[8] += time.time() - tm
+                    times[5] += time.time() - tm
                     tm = time.time()
                     if fin_gts != init_gts:
                         gts_rmv = list(set(init_gts) - set(fin_gts))
@@ -207,19 +171,8 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
                         for strn in p.inf:
                             if p.inf[strn] < 0: print('concern')
                     alive += [indv]
-                    times[5] += time.time() - tm
-            # times[2] += sum(times) - pre_ind_tm
-            tm = time.time()
+                    times[14] += time.time() - tm
             p.individuals = alive
-            # times[12] += time.time() - tm
-            # p.refresh(update=True)
-            # if not p.is_vector and p.tot_pop != 2101:
-            #     print(f'\n\nmoved from host pop {old_tot_pop} to {p.tot_pop}\n\n')
-            #     exit()
-        # if not p.is_vector and p.tot_pop != 2101:
-        #     print(f'\n\nmoved from host pop {old_tot_pop} to {p.tot_pop} after simpara\n\n')
-        #     exit()
-        # times[15] += time.time() - tm_old
         tm = time.time()
         vpi = len(vec_pop.individuals)
         hpi = len(host_pop.individuals)
@@ -227,22 +180,7 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
         hpis += [hpi]
         print(f'{int(100*i/nt)}%; vec indvs: {vpi}; host indvs: {hpi}; vec pop: {vec_pop.tot_pop}; host pop: {host_pop.tot_pop} ',
                end='\r')
-        # times[8] += time.time() - tm
-        tm = time.time()
-        times[9] += time.time() - tm
-        tm = time.time()
-        times[10] += time.time() - tm
-        tm = time.time()
-        times[11] += time.time() - tm
-        tm = time.time()
-        times[12] += time.time() - tm
-        tm = time.time()
-        times[13] += time.time() - tm
-        tm = time.time()
-        times[14] += time.time() - tm
-        # [[print(f'{ind.all_sel_bias}, {p}') for ind in p.individuals] for p in pops]
-        # exit()
-    # times[15] -= (sum(times[5:15]) + sum(times[1:4]))
+        times[15] += time.time() - tm
     return ts_i*dt, ps, times, pops, ps_unwgt, vpis, hpis
 
 def adaptSim(ps: np.ndarray[float], sum_Rs: float, dt: float):

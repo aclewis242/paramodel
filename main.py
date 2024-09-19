@@ -88,11 +88,6 @@ wld_adv = 1/mut_adv
 D.sel_advs = {'h1': 1.05, 'vec': 0.1}
 D.trans_advs = {'h1': 1.0, 'vec': 1.0}
 
-# print(hex(id(D.sel_advs)))
-# print(hex(id(D.trans_advs)))
-# [print(hex(id(D.adv_type[a_t]))) for a_t in D.adv_type]
-# exit()
-
 ALLELES = [D]
 
 PARAMS_1 = HST1
@@ -118,9 +113,6 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
     f = open('inf_events_raw.dat', 'x')
     f.close()
     f = open('last_event.dat', 'x')
-    f.close()
-    f = open('anti_stoch.dat', 'x')
-    f.write('0')
     f.close()
     alleles = []
     if do_allele_mod: alleles = ALLELES
@@ -152,22 +144,16 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
     ts, ps, times, pops, ps_unwgt, vpis, hpis = simShell(t_max, mdls, nt=nt, alleles=alleles, weight_infs=weight_infs,
                                                          do_mix_start=do_mix_start)
     ex_tm = time.time() - t0
-    times_norm = list(100*normalise(np.array(times)))
-    print(f'Execution time: {ex_tm}\t\t')
+    times_norm = normPercentList(times)
+    print(f'\nExecution time: {roundNum(ex_tm, prec=3)}') # consider colored console output for readability
     print('Breakdown:')
-    [print(f'{i}:\t{times_norm[i]}') for i in range(len(times))]
+    printFloatList(times_norm)
     print(f'Extra time: {ex_tm - sum(times)}')
+    for p in pops:
+        print(f'{p.pn} time breakdown:')
+        printFloatList(normPercentList(p.times))
     [p.printDat() for p in pops]
     # dimensions of ps: layer 1 is times, layer 2 is models at that time, layer 3 is pop #s for that model
-    settings = {}
-    settings['hap/dip'] = 'diploid'
-    if INDV_HST['is_hap']: settings['hap/dip'] = 'haploid'
-    if INDV_HST['is_hap'] and not INDV_VEC['is_hap']: settings['hap/dip'] = 'hap./dip. hybrid'
-    settings['sr'] = 'sexual reproduction'
-    if not INDV_VEC['do_sr']: settings['sr'] = f'no {settings["sr"]}'
-    settings['mut'] = 'no'
-    if INDV_HST['do_mutation']: settings['mut'] = 'host'
-    settings['mut'] += ' mutation'
     f = open('inf_events.dat', 'x')
     f_raw = open('inf_events_raw.dat', 'r')
     inf_events = {}
@@ -207,23 +193,13 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
         if mdls[i].pn == 'h1': net_i = hpis
         plt.plot(ts, net_i, label='I (total)')
         plt.plot(ts, 0*ts, alpha=0.)
-        plt.title(f'{mdls[i].pn_full} population ({", ".join(list(settings.values()))})')
+        plt.title(f'{mdls[i].pn_full} population')
         plt.legend()
         plt.xlabel('Simulation time')
         plt.ylabel('Population')
-        # plt.gca().set_ylim(bottom=0)
         plt.savefig(f'{fn(mdls[i].pn)}.png')
         if plot_res: plt.show()
         plt.close()
-
-def test():
-    tm = time.time()
-    tm_loop = 0
-    for i in range(10000000):
-        tm_it = time.time()
-        x = 0.8*10
-        tm_loop += time.time() - tm_it
-    return time.time() - tm, tm_loop
 
 if __name__ == '__main__':
     run()
