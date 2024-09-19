@@ -26,13 +26,26 @@ def float2SN(f: float, p: int=2):
         pwr = np.floor(np.log10(f))
         return f'{int(f/(10**(pwr-p)))/(10**p)}e{int(pwr)}'
 
-def roundNum(f: float, prec: int=2):
+def roundNum(f: float, prec: int=2) -> float:
+    '''
+    Rounds the given number to the given number of decimal points.
+
+    ### Parameters
+    - `f`: The number in question.
+    - `prec`: The number of decimal points to round it to.
+    '''
     return round(f*(10**prec))/(10**prec)
 
 def normPercentList(l: list[float]) -> list[float]:
+    '''
+    Turns the given list into a normalised list of percentages.
+    '''
     return list(100*normalise(np.array(l)))
 
 def printFloatList(l: list[float]):
+    '''
+    Prints the items of a list of floats (rounded to 2 decimal places), as well as their indices.
+    '''
     [print(f'{i}:\t{roundNum(l[i])}') for i in range(len(l))]
 
 def printMat(m: list[list]):

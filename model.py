@@ -107,7 +107,6 @@ class SIR:
         def addPopMult(idx, rpt, sn):
             pop.addPop(list(map(lambda x: float(rpt)*x, self.Es[idx])), sn, pc_trans_src)
         if idx >= self.num_Es:
-            # pop = list(self.itr.keys())[idx-self.num_Es]
             pop = self.itr_keys[idx-self.num_Es]
             idx = 1
             if self.pop.do_indvs:
@@ -150,8 +149,6 @@ class SIR:
         if type(self.__dict__[param]) is dict:
             for k in self.__dict__[param]: self.__dict__[param][k] *= fac
             if vec is not None: vec.__dict__[param][self.pop] *= fac
-            # note for future: in a more complex use-case (i.e. more 'multi-model parameters'), it may be a good idea to
-            # reconsider using the non-primitive number object idea from earlier (more general)
         else: self.__dict__[param] *= fac
     
     def mutateMult(self, params: list[str], fac: float, vec: 'SIR'=None):

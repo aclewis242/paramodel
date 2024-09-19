@@ -316,6 +316,9 @@ class population:
                 for gt in gts_add: self.inf[gt] += 1
     
     def updateSelBiases(self, alleles: list[allele]):
+        '''
+        Updates the population's selection (as well as transmission) biases based on the properties of the given alleles.
+        '''
         self.all_sel_bias: dict[str, float] = {}
         self.all_trans_bias: dict[str, float] = {}
         for a in alleles:
@@ -341,7 +344,8 @@ class population:
 
     def refresh(self, update: bool=True):
         '''
-        Filters out individuals that have been 'marked for death.'
+        Filters out individuals that have been 'marked for death,' and (optionally) updates the macroscopic infection tracking to make sure
+        it aligns with the microscopic state of the simulation.
         '''
         self.indvs = [ind for ind in self.indvs if not ind.marked_for_death]
         if update:

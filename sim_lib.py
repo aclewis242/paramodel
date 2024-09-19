@@ -13,13 +13,16 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
     - `nt`: The number of time steps to use, as a 'float' (e.g. 2e5 - integer in floating-point form).
     - `alleles`: The list of all possible alleles (allele objects). Irrelevant if not using the allele model.
     - `weight_infs`: Whether or not to weight infected data according to individuals' genotype frequencies.
+    - `do_mix_start`: Whether or not to have a mixed distribution of infected individuals (wild & mutated) or uniform (just wild).
 
     ### Returns
-    - `ts`: A NumPy array of the times visited by the simulation (not equispaced nor integer).
+    - `ts`: A NumPy array of the times visited by the simulation (neither equispaced nor integer).
     - `ps`: A NumPy array that contains the populations (flattened) at each time. Rows index population, columns index time.
-    - `times`: An array containing the computation times of the various components of the method.
+    - `times`: A list containing the computation times of the various components of the method.
     - `pops`: A list of all population objects.
     - `ps_unwgt`: Like `ps`, but with unweighted infected information.
+    - `vpis`: A list of the total number of infected vectors at each time.
+    - `hpis`: Like `vpis`, but for hosts instead of vectors.
     '''
     dt = tmax/(nt - 1)
     nt = int(nt)
@@ -40,7 +43,6 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
         for m in mdls: # vec mdl is assumed to be first
             gt = genotypes
             if m.is_vector and is_hyb: gt = genotypes_dip
-            # print(gt)
             m.pop.gnts = gt.copy()
             gt.reverse() # to put 'recessive' (small) first, as it's assumed to be the 'wild' type
             for g in gt:
@@ -129,16 +131,16 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
                 all_Rs[j*num_Rs+k] = mdls[j].Rs[k]
         sum_Rs = sum(all_Rs)
         if not sum_Rs: break
-        times[0] += time.time() - tm # a little expensive. scales poorly with simulation complexity
+        times[0] += time.time() - tm
         tm = time.time()
         Xs = adaptSim(all_Rs/sum_Rs, sum_Rs, dt)
-        times[1] += time.time() - tm # most expensive
+        times[1] += time.time() - tm
         for i_m in range(num_mdls):
             for i_r in range(num_Rs):
                 tm = time.time()
                 rpt = Xs[i_m*num_Rs+i_r]
                 if rpt: mdls[i_m].trans(i_r, rpt)
-                times[2] += time.time() - tm # 2nd most expensive
+                times[2] += time.time() - tm
         tm = time.time()
         for i_p in range(num_pops):
             ps[i][i_p] = pops[i_p].getAllPop(weight=weight_infs)

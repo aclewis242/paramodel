@@ -33,7 +33,7 @@ class individual:
         Initialises the individual.
 
         ### Parameters
-        - `alleles`: The list of allele objects that the genotypes can be built from
+        - `gnts`: The list of genotypes that are allowed to be present within the individual
         - `gnt`: The starting genotype of the parasites
         - `gdm`: The genetic drift model to use (ref. gen_funcs for options). Defaults to Wright-Fisher
         - `tps`: The matrix of transition probabilities to use for genetic drift. Generally the same as the output of `gdm`, but
@@ -48,12 +48,6 @@ class individual:
         - `store_chance`: The chance that the individual's parasites' genetic makeup will be recorded in a file
         '''
         self.__dict__.update(kwargs)
-        # self.genotype_freqs: dict[str, int] = {}
-        # self.num_alleles = len(alleles)
-        # gnts = genGenotypes(alleles, self.is_hap)
-        # if self.is_dip:
-        #     print(gnts)
-        #     exit()
         self.genotype_freqs = dict.fromkeys(gnts, 0)
         if gnt: self.genotype_freqs[gnt] = self.pc
         if self.is_dip:
@@ -81,6 +75,9 @@ class individual:
         return times
     
     def genDrift(self, times: list):
+        '''
+        Simulates genetic drift & selection. (`times` is for speed-recording purposes; refer to sim_lib for details.)
+        '''
         if self.file is not None: self.file.write('\t'.join([str(self.genotype_freqs[g]) for g in self.genotype_freqs])+'\n')
         tm = time.time()
         allele_freqs = self.getAlleleFreqs()
@@ -116,7 +113,7 @@ class individual:
                     self.genotype_freqs[self.ploidy*chr(ord(a)+32)] = all_dist[0]
                     self.genotype_freqs[a + chr(ord(a)+32)] = all_dist[1]
                     self.genotype_freqs[2*a] = all_dist[2]
-                    times[11] += time.time() - tm # equally kind of expensive
+                    times[11] += time.time() - tm
                 else: # only used for multi-locus case, which (at least right now) should never arise. will greatly reduce speed
                     tm = time.time()
                     for a_d_i in range(self.ploidy+1): # essentially a pc-length for loop
@@ -144,9 +141,9 @@ class individual:
 
     def mutate_old(self):
         '''
-        Effects the mutations observed over a single generation.
+        Effects the mutations observed over a single generation. Based on an older and slower algorithm -- more general than the now-standard
+        one, but much slower. Used only if there are mutations in a diploid, multi-locus individual (not currently part of the simulation)
         '''
-        # num_muts = self.rng.binomial(self.pc*self.num_alleles, self.mut_chance)
         num_muts = self.rng.poisson(self.pc*self.num_alleles*self.mut_chance)
         for i in range(num_muts):
             mut_src = self.infect()
@@ -165,6 +162,9 @@ class individual:
             if self.file is not None: self.file.write('\tmut\n')
     
     def mutate(self):
+        '''
+        Effects the mutations observed over a single generation.
+        '''
         if self.num_alleles != 1 or self.is_dip:
             self.mutate_old()
             return
@@ -207,7 +207,7 @@ class individual:
 
     def getAlleleFreqs(self):
         '''
-        Gets the frequencies of each allele in the genotypes present in the individual's parasites. Used primarily for genetic drift.
+        Gets the frequencies of each allele in the genotypes present in the individual's parasites. Used primarily in `genDrift`.
         '''
         rv: dict[str, int] = {}
         if self.num_alleles != 1:
@@ -232,11 +232,11 @@ class individual:
         return [gt for gt in self.genotype_freqs if self.genotype_freqs[gt]]
     
     def getGenotypeTransWeights(self) -> np.ndarray[float]:
-        # def normDictVals(dct: dict):
-        #     return normalise(np.array(list(dct.values())))
-        # gtf_vals = normDictVals(self.genotype_freqs)
-        # gtfs_norm = dictify(self.genotype_freqs.keys(), gtf_vals)
-        # gtfs_wgt = {gt: gtfs_norm[gt]**self.gtf_wgts[gt] for gt in gtfs_norm}
+        '''
+        Get the genotypes' transmission weights.
+
+        (Note: Intended to be used with transmission biases, but those are not currently implemented, so it just uses the base frequencies.)
+        '''
         return normalise(np.array(list(self.genotype_freqs.values())))
 
     def infectMult(self, num: int=1) -> dict[str, int]:
@@ -264,9 +264,6 @@ class individual:
         for stn in to_replace:
             self.genotype_freqs[stn] -= to_replace[stn]
             self.genotype_freqs[strn_match] += to_replace[stn]
-        # if sum(self.genotype_freqs.values()) != self.pc:
-        #     print(f'(inside indv) pc {self.pc}, gtfs {self.genotype_freqs}. submitted strain {strn}, pc_num {pc_num}')
-        #     exit()
         if sum(self.genotype_freqs.values()) != self.pc:
             print(f'(inside infectSelf) pc {self.pc}, gtfs {self.genotype_freqs} (sum {sum(self.genotype_freqs.values())})')
             exit()
@@ -314,11 +311,18 @@ class individual:
         return m2u(s2m)
     
     def matchDist(self, sd2m: dict[str, int]):
+        '''
+        Takes a given strain distribution and matches it to the format required of this individual (i.e. hap/diploid).
+        '''
         new_dist = dict.fromkeys(self.genotype_freqs, 0)
         for s in sd2m: new_dist[self.match(s)] += sd2m[s]
         return new_dist
     
     def correction_det(self, sn: str=''):
+        '''
+        'Corrects' for multi-counting by weighting the individual according to either the number of strains present within it (no parameter),
+        or how prevalent the given strain is.
+        '''
         if sn: return self.genotype_freqs[sn]/self.pc
         else: return 1/len(self.getGenotypes())
     

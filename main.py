@@ -108,6 +108,7 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
     - `do_allele_mod`: Whether or not to use the allele-based mutation model, as a bool.
     - `weight_infs`: Whether or not to display 'weighted' data for infections (weighted according to the strains' relative
         genotype frequencies).
+    - `do_mix_start`: Whether or not to have a mixed distribution of infected individuals (wild & mutated) or uniform (just wild).
     '''
     [os.remove(file) for file in os.listdir() if file.endswith('.dat')]
     f = open('inf_events_raw.dat', 'x')
@@ -183,7 +184,7 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
         for n in ns:
             if '(' in n and ')' in n: gens += [n[n.index('(')+1:n.index(')')]]
             else: gens += [n]
-        ps_unwgt_i = np.array([k[i] for k in ps_unwgt])
+        # ps_unwgt_i = np.array([k[i] for k in ps_unwgt])
         # if weight_infs and mdls[i].pop.do_indvs: [plt.plot(ts, ps_unwgt_i[:,j], label=f'{ns[j]} (unweighted)', color=str2Color(gens[j]),
         #     alpha=pop2Alpha(ns[j])/4) for j in range(len(ns)) if (ns[j][0] != 'R') and (ns[j][0] != 'S')]
         ps_i = np.array([k[i] for k in ps])
