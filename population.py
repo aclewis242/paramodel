@@ -156,6 +156,9 @@ class population:
                     tm = time.time()
                     i_change, to_change = self.getChanges(I, sus_pops)
                     tba = self.makeIndvs(sn, i_change)
+                    # if self.is_vector and sum(p) < 10:
+                    #     print(self.trans_ps)
+                    #     exit()
                     self.times[4] += time.time() - tm # most expensive (vec), 2nd most expensive (host)
                     for strn in to_change:
                         tm = time.time()
@@ -341,6 +344,10 @@ class population:
         self.indv_params['gtf_wgts'] = self.gtf_wgts
         self.indv_params['all_sel_bias'] = self.all_sel_bias
         self.indv_params['all_trans_bias'] = self.all_trans_bias
+
+    def getGntDist(self):
+        if self.indvs[0].num_alleles != 1: return
+        return [list(ind.getAlleleFreqs().values())[0]/ind.num_genes for ind in self.indvs]
 
     def refresh(self, update: bool=True):
         '''

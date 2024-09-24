@@ -3,3 +3,4 @@ __pycache__
 *.dat
 *.txt
 old images
+hists*

@@ -69,8 +69,10 @@ class individual:
         for i in range(self.para_gens):
             tm = time.time()
             if self.do_mutation: self.mutate()
+            self.checkGtfs('mutate')
             times[13] += time.time() - tm
             times = self.genDrift(times)
+            self.checkGtfs('gendrift')
             if self.do_sr: self.genotype_freqs = self.reproduce()
         return times
     
@@ -92,7 +94,8 @@ class individual:
         for a in allele_freqs:
             curr_ind -= 1
             tm = time.time()
-            if self.is_dip: new_allele_freqs[a] = random.choices(self.gene_range, self.trans_ps[allele_freqs[a]])[0]
+            if self.is_dip and allele_freqs[a] != self.num_genes:
+                new_allele_freqs[a] = random.choices(self.gene_range, self.trans_ps[allele_freqs[a]])[0]
             times[8] += time.time() - tm
             all_prop = new_allele_freqs[a]/self.num_genes
             w_avg = self.all_sel_bias[a]*all_prop + (1 - all_prop)
@@ -264,9 +267,7 @@ class individual:
         for stn in to_replace:
             self.genotype_freqs[stn] -= to_replace[stn]
             self.genotype_freqs[strn_match] += to_replace[stn]
-        if sum(self.genotype_freqs.values()) != self.pc:
-            print(f'(inside infectSelf) pc {self.pc}, gtfs {self.genotype_freqs} (sum {sum(self.genotype_freqs.values())})')
-            exit()
+        self.checkGtfs('infectSelf')
         return list(set(old_gnts) - set(self.getGenotypes()))
     
     def infectSelfMult(self, mix: dict[str, int]):
@@ -298,9 +299,7 @@ class individual:
             rem = amt_raw - amt
             self.genotype_freqs[matched] += amt
         if rem > 0.999: self.genotype_freqs[matched] += 1
-        # if sum(self.genotype_freqs.values()) != self.pc:
-        #     print(f'(inside s2mix) pc {self.pc}, gtfs {self.genotype_freqs}. submitted mix {mix}')
-        #     exit()
+        self.checkGtfs('s2mix')
 
     def match(self, s2m: str):
         '''
@@ -344,6 +343,11 @@ class individual:
         Currently deprecated; may eventually be used for deep copying.
         '''
         return
+    
+    def checkGtfs(self, loc: str=''):
+        if sum(self.genotype_freqs.values()) != self.pc:
+            print(f'({loc}) pc {self.pc}, gtfs {self.genotype_freqs} (sum {sum(self.genotype_freqs.values())})')
+            exit()
     
     @property
     def is_dip(self):

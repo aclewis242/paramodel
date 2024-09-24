@@ -53,7 +53,7 @@ HST2 = {
 }
 
 INDV_VEC = {
-    'pc': 12,
+    'pc': 120,
     'mut_chance': 4e-3,
     'para_lsp': 2.,
     'is_hap': False,
@@ -85,7 +85,7 @@ D = allele(char='D', fav_pop='h1', unf_pop='h2', param='itr', fac=0.0)
 
 mut_adv = 1.05
 wld_adv = 1/mut_adv
-D.sel_advs = {'h1': 1.05, 'vec': 0.1}
+D.sel_advs = {'h1': 1.0, 'vec': 1.05}
 D.trans_advs = {'h1': 1.0, 'vec': 1.0}
 
 ALLELES = [D]
@@ -94,8 +94,8 @@ PARAMS_1 = HST1
 PARAMS_2 = VEC
 PARAMS_3 = HST2
 
-def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=1200., nt: float=2.,
-        plot_res: bool=True, t_scale: float=50., do_allele_mod: bool=True, weight_infs: bool=True, do_mix_start: bool=True,):
+def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=1200., nt: float=2., num_hist: int=0,
+        plot_res: bool=False, t_scale: float=25., do_allele_mod: bool=True, weight_infs: bool=True, do_mix_start: bool=True,):
     '''
     Run the simulation.
 
@@ -111,6 +111,7 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
     - `do_mix_start`: Whether or not to have a mixed distribution of infected individuals (wild & mutated) or uniform (just wild).
     '''
     [os.remove(file) for file in os.listdir() if file.endswith('.dat')]
+    if 'hists' not in os.listdir(): os.mkdir('hists')
     f = open('inf_events_raw.dat', 'x')
     f.close()
     f = open('last_event.dat', 'x')
@@ -142,8 +143,8 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
     t0 = time.time()
     # mdls = [m1, m2, m3]
     mdls = [m1, m2]
-    ts, ps, times, pops, ps_unwgt, vpis, hpis = simShell(t_max, mdls, nt=nt, alleles=alleles, weight_infs=weight_infs,
-                                                         do_mix_start=do_mix_start)
+    ts, ps, times, pops, ps_unwgt, vpis, hpis, hists_v, hists_h, hist_tms = simShell(
+        t_max, mdls, nt=nt, alleles=alleles, weight_infs=weight_infs, do_mix_start=do_mix_start, num_hist=num_hist)
     ex_tm = time.time() - t0
     times_norm = normPercentList(times)
     print(f'\nExecution time: {roundNum(ex_tm, prec=3)}') # consider colored console output for readability
@@ -201,6 +202,22 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
         plt.savefig(f'{fn(mdls[i].pn)}.png')
         if plot_res: plt.show()
         plt.close()
+    
+    # print(hist_tms)
+    hists_with_pn = {'vec': hists_v, 'h1': hists_h}
+    hist_max = p0[0][1]
+    for hpn in hists_with_pn:
+        hists_2_p = hists_with_pn[hpn]
+        for i in range(num_hist):
+            tm = hist_tms[i]
+            hist_2_p = [0.0] + hists_2_p[i] + [1.0]
+            plt.hist(hist_2_p, bins=300)
+            plt.title(f'Population {hpn}, time {roundNum(tm)}')
+            plt.xlabel('Mutated (capital) allele frequencies')
+            plt.ylabel('Individual count')
+            if hpn == 'h1': plt.ylim(top=hist_max)
+            plt.savefig(f'hists/{hpn}_{i}.png')
+            plt.close()
 
 if __name__ == '__main__':
     run()

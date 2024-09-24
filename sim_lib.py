@@ -3,7 +3,8 @@ from allele import *
 import numpy as np
 import time
 
-def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=[], weight_infs: bool=False, do_mix_start: bool=False,):
+def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=[], weight_infs: bool=False, do_mix_start: bool=False,
+             num_hist: int=5):
     '''
     Manages the time iterations of the simulation.
 
@@ -26,6 +27,8 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
     '''
     dt = tmax/(nt - 1)
     nt = int(nt)
+    if num_hist < 2 and num_hist != 0: num_hist = 2
+    hist_fac = ((num_hist - 1)/nt)*bool(num_hist)
 
     vec_strain_2_mdl = {}
     is_haploid = False
@@ -119,10 +122,14 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
     [p.updateSelBiases(alleles) for p in pops]
     for p in pops:
         p.init_pop = p.tot_pop
-        if p.individuals: p.trans_ps = p.individuals[0].trans_ps
+        test_indv = p.makeIndvs(sn=p.gnts[0], num_indvs=1)[0]
+        p.trans_ps = test_indv.trans_ps
 
     hpis = []
     vpis = []
+    hists_h = []
+    hists_v = []
+    hist_tms = []
     for i in ts_i:
         tm = time.time()
         for j in range(num_mdls):
@@ -182,8 +189,18 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
         hpis += [hpi]
         print(f'{int(100*i/nt)}%; vec indvs: {vpi}; host indvs: {hpi}; vec pop: {vec_pop.tot_pop}; host pop: {host_pop.tot_pop} ',
                end='\r')
+        hist_check = hist_fac*i
+        hist_check_2 = int(hist_fac*(i+1))
+        hist_check_int = int(hist_check)
+        if (hist_check_int == hist_check or hist_check_2 > hist_check_int) and num_hist:
+            hists_h += [host_pop.getGntDist()]
+            hists_v += [vec_pop.getGntDist()]
+            hist_tms += [i*dt]
         times[15] += time.time() - tm
-    return ts_i*dt, ps, times, pops, ps_unwgt, vpis, hpis
+    hists_h += [host_pop.getGntDist()]
+    hists_v += [vec_pop.getGntDist()]
+    hist_tms += [ts_i[-1]*dt]
+    return ts_i*dt, ps, times, pops, ps_unwgt, vpis, hpis, hists_v, hists_h, hist_tms
 
 def adaptSim(ps: np.ndarray[float], sum_Rs: float, dt: float):
     '''
