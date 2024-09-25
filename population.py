@@ -26,6 +26,7 @@ class population:
     times: list[float] = []
     gnts: list[str] = []
     trans_ps: list[list[float]] = []
+    gene_range: list[int] = []
 
     def __init__(self, p0: list[int], pn: str='', isn: str='init', **kwargs):
         '''
@@ -51,6 +52,7 @@ class population:
         self.indv_params = kwargs
         self.indv_params['num_alleles'] = len(self.indv_params['alleles'])
         self.rng = np.random.default_rng()
+        self.indv_params['rng'] = self.rng
         if not self.do_indvs: self.do_mixed_infs = False
         self.all_sel_bias: dict[str, float] = {}
         self.sel_bias_lst: dict[str, list[float]] = {}
@@ -58,6 +60,7 @@ class population:
         self.times: list[float] = [0 for i in range(15)]
         self.gnts: list[str] = []
         self.trans_ps: list[list[float]] = []
+        self.gene_range: list[int] = []
     
     def getPop(self, sn: str='init') -> list[int]:
         '''
@@ -127,16 +130,16 @@ class population:
         inf_new = self.inf.copy()
         rec_new = self.rec.copy()
         self.times[1] += time.time() - tm
-        tm = time.time()
-        sus_indvs: list[individual] = []
-        strain_indvs: dict[str, list[individual]] = {}
-        sus_pops: np.ndarray[float]
-        if self.do_mixed_infs and I:
-            sus_indvs = self.getSusInf(sn)
-            for sn_i in self.inf: strain_indvs[sn_i] = self.getSusInf(sn_i, is_present=True, indvs_lst=sus_indvs)
-            sus_pops_lst = [self.sus]+[(sn_i != sn)*len(strain_indvs[sn_i]) for sn_i in self.inf]
-            sus_pops = np.array(sus_pops_lst)/sum(sus_pops_lst)
-        self.times[2] += time.time() - tm # 2nd most expensive (vec), ~3rd most expensive (host)
+        # tm = time.time()
+        # sus_indvs: list[individual] = []
+        # strain_indvs: dict[str, list[individual]] = {}
+        # sus_pops: np.ndarray[float]
+        # if self.do_mixed_infs and I:
+        #     sus_indvs = self.getSusInf(sn)
+        #     for sn_i in self.inf: strain_indvs[sn_i] = self.getSusInf(sn_i, is_present=True, indvs_lst=sus_indvs)
+        #     sus_pops_lst = [self.sus]+[(sn_i != sn)*len(strain_indvs[sn_i]) for sn_i in self.inf]
+        #     sus_pops = np.array(sus_pops_lst)/sum(sus_pops_lst)
+        # self.times[2] += time.time() - tm # 2nd most expensive (vec), ~3rd most expensive (host)
 
         tm = time.time()
         sus_new += S
@@ -154,19 +157,29 @@ class population:
                 if not self.do_mixed_infs: tba = self.makeIndvs(sn, I)
                 else: # 'mixed' in the sense of 'mixed final parasite genotypes,' not 'mixed transmission'
                     tm = time.time()
-                    i_change, to_change = self.getChanges(I, sus_pops)
+                    sus_indvs = self.getSusInf(sn)
+                    strain_indvs = {sn_i: self.getSusInf(sn_i, is_present=True, indvs_lst=sus_indvs) for sn_i in self.inf}
+                    # sus_pop_nums = [self.sus] + [self.getSusInfNum(sn_i, is_present=True, indvs_lst=sus_indvs) if sn != sn_i else 0
+                    #                              for sn_i in self.inf]
+                    sus_pop_nums = [self.sus] + [len(strain_indvs[sn_i]) if sn != sn_i else 0 for sn_i in self.inf]
+                    sus_pop_wgts = normalise(np.array(sus_pop_nums))
+                    self.times[2] += time.time() - tm
+                    tm = time.time()
+                    i_change, to_change = self.getChanges(I, sus_pop_wgts) # sus_pops: weights of diff sus pops
                     tba = self.makeIndvs(sn, i_change)
                     # if self.is_vector and sum(p) < 10:
                     #     print(self.trans_ps)
                     #     exit()
-                    self.times[4] += time.time() - tm # most expensive (vec), 2nd most expensive (host)
+                    self.times[4] += time.time() - tm
                     for strn in to_change:
                         tm = time.time()
                         sus_new += to_change[strn]
-                        indvs_with_strn = self.getSusInf(strn, is_present=True)
-                        self.times[5] += time.time() - tm # ~3rd most expensive (host)
+                        # indvs_with_strn = self.getSusInf(strn, is_present=True)
+                        self.times[5] += time.time() - tm
                         tm = time.time()
-                        indvs_to_infect = self.getSusInf(sn, indvs_lst=indvs_with_strn)
+                        # indvs_to_infect = self.getSusInf(sn, indvs_lst=indvs_with_strn)
+                        # indvs_to_infect = self.getSusInf(strn, is_present=True, indvs_lst=sus_indvs)
+                        indvs_to_infect = strain_indvs[strn]
                         self.times[6] += time.time() - tm
                         tm = time.time()
                         random.shuffle(indvs_to_infect)
@@ -183,10 +196,11 @@ class population:
         elif I < 0:
             # self.refresh()
             tm = time.time()
-            random.shuffle(self.indvs)
+            # random.shuffle(self.indvs)
+            inf_indvs = self.getSusInf(sn, is_present=True)
             self.times[10] += time.time() - tm
             tm = time.time()
-            inf_indvs = self.getSusInf(sn, is_present=True)
+            random.shuffle(inf_indvs)
             self.times[11] += time.time() - tm
             for ind in inf_indvs[:-I]:
                 # if not R:
@@ -200,7 +214,7 @@ class population:
                 self.times[12] += time.time() - tm
             tm = time.time()
             self.refresh()
-            self.times[13] += time.time() - tm # 3rd most expensive (vec), most expensive (host)
+            self.times[13] += time.time() - tm
         tm = time.time()
         rec_new[sn] += R
 
@@ -254,7 +268,8 @@ class population:
         Make the given number of individuals with the given strain.
         '''
         # self.store_chance /= (1+sum(self.inf.values()))
-        return [individual(gnts=self.gnts, gnt=sn, tps=self.trans_ps, **self.indv_params) for i in range(int(num_indvs))]
+        return [individual(gnts=self.gnts, gnt=sn, tps=self.trans_ps, gr=self.gene_range, **self.indv_params)
+                for i in range(int(num_indvs))]
 
     def addStrain(self, nsn: str):
         '''
@@ -358,7 +373,10 @@ class population:
         if update:
             self.inf = dict.fromkeys(self.inf, 0)
             for ind in self.indvs:
-                for gt in ind.getGenotypes(): self.inf[gt] += 1
+                # for gt in ind.getGenotypes(): self.inf[gt] += 1
+                gtfs = ind.genotype_freqs
+                for gt in gtfs:
+                    if gtfs[gt]: self.inf[gt] += 1
         
     def printDatStr(self):
         '''

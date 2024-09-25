@@ -28,7 +28,8 @@ class individual:
     all_trans_bias: dict[str, float] = {}
     gtf_wgts: dict[str, float] = {}
 
-    def __init__(self, gnts: list[str]=[], gnt: str='', gdm=wf, tps: list[list[float]]=[], **kwargs):
+    def __init__(self, gnts: list[str]=[], gnt: str='', gdm=wf, tps: list[list[float]]=[], gr: list[int]=[], rng: np.random.Generator=None,
+                  **kwargs):
         '''
         Initialises the individual.
 
@@ -51,13 +52,15 @@ class individual:
         self.genotype_freqs = dict.fromkeys(gnts, 0)
         if gnt: self.genotype_freqs[gnt] = self.pc
         if self.is_dip:
-            self.gene_range: list[int] = list(range(self.num_genes+1))
+            if not gr: self.gene_range: list[int] = list(range(self.num_genes+1))
+            else: self.gene_range = gr
             if not tps: self.trans_ps = gdm(self.num_genes)
             else: self.trans_ps = tps
         else:
             self.trans_ps = [[]]
             self.gene_range: list[int] = []
-        self.rng = np.random.default_rng()
+        if rng is None: self.rng = np.random.default_rng()
+        else: self.rng = rng
         if self.pc_to_transmit > self.pc: self.pc_to_transmit = self.pc
         self.marked_for_death = False
         self.is_new_inf = True
@@ -69,10 +72,10 @@ class individual:
         for i in range(self.para_gens):
             tm = time.time()
             if self.do_mutation: self.mutate()
-            self.checkGtfs('mutate')
+            # self.checkGtfs('mutate')
             times[13] += time.time() - tm
             times = self.genDrift(times)
-            self.checkGtfs('gendrift')
+            # self.checkGtfs('gendrift')
             if self.do_sr: self.genotype_freqs = self.reproduce()
         return times
     
@@ -81,6 +84,10 @@ class individual:
         Simulates genetic drift & selection. (`times` is for speed-recording purposes; refer to sim_lib for details.)
         '''
         if self.file is not None: self.file.write('\t'.join([str(self.genotype_freqs[g]) for g in self.genotype_freqs])+'\n')
+        num_gnts = -1
+        for gt in self.genotype_freqs:
+            if self.genotype_freqs[gt]: num_gnts += 1
+        if not num_gnts: return times
         tm = time.time()
         allele_freqs = self.getAlleleFreqs()
         times[6] += time.time() - tm
@@ -93,7 +100,11 @@ class individual:
         times[7] += time.time() - tm
         for a in allele_freqs:
             curr_ind -= 1
+            if not allele_freqs[a]: continue
             tm = time.time()
+            if self.is_dip:
+                print(f'omg something happening?! gtfs {self.genotype_freqs}, sel bias {self.all_sel_bias}')
+                exit()
             if self.is_dip and allele_freqs[a] != self.num_genes:
                 new_allele_freqs[a] = random.choices(self.gene_range, self.trans_ps[allele_freqs[a]])[0]
             times[8] += time.time() - tm
@@ -103,8 +114,12 @@ class individual:
             j = 0
             if self.is_hap and self.num_alleles == 1:
                 tm = time.time()
-                self.genotype_freqs[a] = round(all_prop*self.pc)
-                self.genotype_freqs[a.lower()] = round((1-all_prop)*self.pc)
+                pc_flt = float(self.pc)
+                gtfs_big = round(all_prop*pc_flt)
+                gtfs_sml = round((1-all_prop)*pc_flt)
+                if gtfs_big + gtfs_sml > pc_flt: gtfs_sml = self.pc - gtfs_big
+                self.genotype_freqs[a] = gtfs_big
+                self.genotype_freqs[chr(ord(a)+32)] = gtfs_sml
                 times[9] += time.time() - tm
             else:
                 tm = time.time()
@@ -175,7 +190,9 @@ class individual:
         pre_gtfs = self.genotype_freqs.copy()
         for gt in self.genotype_freqs:
             freq = pre_gtfs[gt]/self.pc
+            if not freq: continue
             num_muts = self.rng.poisson(param_base*freq)
+            if not num_muts: continue
             self.genotype_freqs[gt] -= num_muts
             self.genotype_freqs[gt.swapcase()] += num_muts
     
@@ -224,8 +241,9 @@ class individual:
         else:
             keys = list(self.genotype_freqs.keys())
             # Note: assumes genotypes are ordered from more uppercase to less uppercase (D-d, DD-Dd-dd)!
-            if self.is_hap: rv[keys[0]] = self.genotype_freqs[keys[0]]
-            else: rv[keys[0][0]] = 2*self.genotype_freqs[keys[0]] + self.genotype_freqs[keys[1]]
+            keys_0 = keys[0]
+            if self.is_hap: rv[keys_0] = self.genotype_freqs[keys_0]
+            else: rv[keys_0[0]] = 2*self.genotype_freqs[keys_0] + self.genotype_freqs[keys[1]]
         return rv
 
     def getGenotypes(self):
@@ -267,7 +285,7 @@ class individual:
         for stn in to_replace:
             self.genotype_freqs[stn] -= to_replace[stn]
             self.genotype_freqs[strn_match] += to_replace[stn]
-        self.checkGtfs('infectSelf')
+        # self.checkGtfs('infectSelf')
         return list(set(old_gnts) - set(self.getGenotypes()))
     
     def infectSelfMult(self, mix: dict[str, int]):
@@ -299,7 +317,7 @@ class individual:
             rem = amt_raw - amt
             self.genotype_freqs[matched] += amt
         if rem > 0.999: self.genotype_freqs[matched] += 1
-        self.checkGtfs('s2mix')
+        # self.checkGtfs('s2mix')
 
     def match(self, s2m: str):
         '''

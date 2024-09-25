@@ -124,6 +124,7 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
         p.init_pop = p.tot_pop
         test_indv = p.makeIndvs(sn=p.gnts[0], num_indvs=1)[0]
         p.trans_ps = test_indv.trans_ps
+        p.gene_range = test_indv.gene_range
 
     hpis = []
     vpis = []

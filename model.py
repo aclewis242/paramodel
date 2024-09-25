@@ -80,8 +80,8 @@ class SIR:
         for ind in inf_indvs:
             I_UW += ind.correction_det()            # unweighted infections (simple 'yes/no' on strain presence)
             I_WS += ind.correction_det(sn=self.sn)  # weighted according to how prevalent the strain is inside the indv
-        self.Rs = [N*self.bd*0,     # 'legacy', since births are now pop-delineated (like deaths always were)
-                    self.ir*S*I/N,  # also 'legacy' (infections are now handled by vectors, not intra-pop things)
+        self.Rs = [0, # N*self.bd*0,     # 'legacy', since births are now pop-delineated (like deaths always were)
+                    0, # self.ir*S*I/N,  # also 'legacy' (infections are now handled by vectors, not intra-pop things)
                     self.rr*I_WS,
                     self.bds*S,
                     self.bd*I_UW,
@@ -91,7 +91,6 @@ class SIR:
                     self.bd*I_UW,
                     self.bd*R] + [self.itr[p2]*I_WS*(p2.sus+p2.getSusInfNum(self.sn))/(self.pop.tot_pop+p2.tot_pop) for p2 in self.itr]
                     # is the tot_pop # too high?
-                    # also: not guaranteed that the strain being transmitted will actually be in the transmission dist, maybe?
         return self.Rs
 
     def trans(self, idx: int, rpt: int=1):
@@ -104,29 +103,32 @@ class SIR:
         '''
         pop = self.pop
         pc_trans_src = self.pop.pc_to_transmit
-        def addPopMult(idx, rpt, sn):
-            pop.addPop(list(map(lambda x: float(rpt)*x, self.Es[idx])), sn, pc_trans_src)
+        # def addPopMult(idx, rpt, sn):
+        #     pop.addPop(list(map(lambda x: float(rpt)*x, self.Es[idx])), sn, pc_trans_src)
         if idx >= self.num_Es:
             pop = self.itr_keys[idx-self.num_Es]
             idx = 1
-            if self.pop.do_indvs:
-                to_infect = {}
-                for i in range(int(rpt)): # consider doing a random list earlier (no risk of double-selecting)
-                    # potential speed increase: run infectMult earlier, feed into normal way if all same gt
-                    indv = random.choice(self.pop.individuals)
-                    if len(indv.getGenotypes()) == 1:
-                        strn = indv.infect()
-                        # f = open('inf_events_raw.dat', 'a')
-                        # f.write(f'gtfs {indv.genotype_freqs} -> {strn}\n')
-                        # f.close()
-                        if strn in to_infect: to_infect[strn] += 1
-                        else: to_infect[strn] = 1
-                        # does the infect properly consider the macro weights?
-                    else: pop.infectMix(indv.infectMult(indv.pc_to_transmit))
-                for strn in to_infect: addPopMult(idx, to_infect[strn], strn)
-                return self.pop.getPop(self.sn)
-        addPopMult(idx, rpt, self.sn)
-        return self.pop.getPop(self.sn)
+            # if self.pop.do_indvs:
+                # to_infect = {}
+                # for i in range(int(rpt)): # consider doing a random list earlier (no risk of double-selecting)
+                #     # potential speed increase: run infectMult earlier, feed into normal way if all same gt
+                #     indv = random.choice(self.pop.individuals)
+                #     if len(indv.getGenotypes()) == 1:
+                #         strn = indv.infect()
+                #         # f = open('inf_events_raw.dat', 'a')
+                #         # f.write(f'gtfs {indv.genotype_freqs} -> {strn}\n')
+                #         # f.close()
+                #         if strn in to_infect: to_infect[strn] += 1
+                #         else: to_infect[strn] = 1
+                #         # does the infect properly consider the macro weights?
+                #     else: pop.infectMix(indv.infectMult(indv.pc_to_transmit))
+                # for strn in to_infect: addPopMult(idx, to_infect[strn], strn)
+                # addPopMult(idx, rpt, self.sn)
+                # return self.pop.getPop(self.sn)
+        # addPopMult(idx, rpt, self.sn)
+        # return self.pop.getPop(self.sn)
+        # pop.addPop(list(map(lambda x: float(rpt)*x, self.Es[idx])), self.sn, pc_trans_src)
+        pop.addPop(list(np.multiply(self.Es[idx], rpt)), self.sn, pc_trans_src)
     
     def newStrain(self, nsn='new'):
         '''

@@ -60,12 +60,11 @@ INDV_VEC = {
     'do_sr': False,
     'do_mutation': False,
     'do_indvs': True,
-    'pc_to_transmit': 20,
     'do_sel_bias': True,
 }
 INDV_HST = {
     'pc': int(1.2e6),
-    'mut_chance': 8e-6,
+    'mut_chance': 8e-7,
     'para_lsp': 2.,
     'is_hap': True,
     'do_sr': False,
@@ -73,8 +72,8 @@ INDV_HST = {
     'do_indvs': True,
     'do_sel_bias': True,
 }
-INDV_HST['pc_to_transmit'] = int(INDV_HST['pc']/2)
 INDVS = [INDV_VEC, INDV_HST]
+for INDV in INDVS: INDV['pc_to_transmit'] = int(INDV['pc']/2)
 
 # for p_fac of 5e4, nt 2e4: epidemic params are 4e3, 1e3, 7e1 for ir, rr, wi respectively (stab/epi)
 
@@ -83,9 +82,9 @@ B = allele(char='B', fav_pop='h1', unf_pop='h2', param='itr', fac=0.3)
 C = allele(char='C', fav_pop='h1', unf_pop='h2', param='rr', fac=-0.6)
 D = allele(char='D', fav_pop='h1', unf_pop='h2', param='itr', fac=0.0)
 
-mut_adv = 1.05
+mut_adv = 3.5
 wld_adv = 1/mut_adv
-D.sel_advs = {'h1': 1.0, 'vec': 1.05}
+D.sel_advs = {'h1': 1.05, 'vec': 0.00000001}
 D.trans_advs = {'h1': 1.0, 'vec': 1.0}
 
 ALLELES = [D]
@@ -95,7 +94,7 @@ PARAMS_2 = VEC
 PARAMS_3 = HST2
 
 def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=1200., nt: float=2., num_hist: int=0,
-        plot_res: bool=False, t_scale: float=25., do_allele_mod: bool=True, weight_infs: bool=True, do_mix_start: bool=True,):
+        plot_res: bool=True, t_scale: float=100., do_allele_mod: bool=True, weight_infs: bool=True, do_mix_start: bool=False,):
     '''
     Run the simulation.
 
