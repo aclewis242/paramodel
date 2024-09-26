@@ -27,6 +27,7 @@ class individual:
     all_sel_bias: dict[str, float] = {}
     all_trans_bias: dict[str, float] = {}
     gtf_wgts: dict[str, float] = {}
+    num_genes: int=0
 
     def __init__(self, gnts: list[str]=[], gnt: str='', gdm=wf, tps: list[list[float]]=[], gr: list[int]=[], rng: np.random.Generator=None,
                   **kwargs):
@@ -49,6 +50,7 @@ class individual:
         - `store_chance`: The chance that the individual's parasites' genetic makeup will be recorded in a file
         '''
         self.__dict__.update(kwargs)
+        self.num_genes = self.pc*self.ploidy
         self.genotype_freqs = dict.fromkeys(gnts, 0)
         if gnt: self.genotype_freqs[gnt] = self.pc
         if self.is_dip:
@@ -93,27 +95,41 @@ class individual:
         if self.num_alleles != 1: new_genotypes = ['']*self.pc
         curr_ind = len(allele_freqs)
         tba = ''
-        new_allele_freqs = allele_freqs.copy()
+        # new_allele_freqs = allele_freqs.copy()
         times[7] += time.time() - tm
         for a in allele_freqs:
             curr_ind -= 1
-            if not allele_freqs[a]: continue
+            all_freq = allele_freqs[a]
+            if not all_freq or all_freq == self.num_genes: continue
             tm = time.time()
             # if self.is_dip:
             #     print(f'omg something happening?! gtfs {self.genotype_freqs}, sel bias {self.all_sel_bias}')
             #     exit()
-            all_prop = new_allele_freqs[a]/self.num_genes
-            w_avg = self.all_sel_bias[a]*all_prop + (1 - all_prop)
-            all_prop *= self.all_sel_bias[a]/w_avg
+            all_prop = all_freq/self.num_genes
+            asb = self.all_sel_bias[a]
+            w_avg = asb*all_prop + (1 - all_prop)
+            all_prop *= asb/w_avg
             # potential speed increase: condition on new_allele_freqs not being a nothing (0 or 1)
             # if self.is_dip and (new_allele_freqs[a] and new_allele_freqs[a] != self.num_genes):
             #     print(f'omg something happening?! gtfs {self.genotype_freqs}, sel bias {self.all_sel_bias}')
             #     print(new_allele_freqs)
             #     exit()
             times[8] += time.time() - tm
-            if self.is_dip and allele_freqs[a] != self.num_genes:
-                new_allele_freqs[a] = random.choices(self.gene_range, self.trans_ps[round(all_prop*self.num_genes)])[0]
+            tm = time.time()
+            if self.is_dip:
+                all_trans = round(all_prop*self.num_genes)
+                if not all_trans or all_trans == self.num_genes: all_prop = float(bool(all_trans))
+                else: all_prop = random.choices(self.gene_range, self.trans_ps[all_trans])[0]/self.num_genes
             j = 0
+            times[15] += time.time() - tm
+            if not all_prop or all_prop == 1:
+                tm = time.time()
+                all_prop_bool = bool(all_prop) # note: consider conditioning on hap instead of using ploidy (speed?)
+                self.genotype_freqs[self.ploidy*a] = all_prop_bool*self.pc
+                self.genotype_freqs[self.ploidy*chr(ord(a)+32)] = (not all_prop_bool)*self.pc
+                if self.is_dip: self.genotype_freqs[a + chr(ord(a)+32)] = 0
+                times[12] += time.time() - tm
+                continue
             if self.is_hap and self.num_alleles == 1:
                 tm = time.time()
                 pc_flt = float(self.pc)
@@ -130,7 +146,7 @@ class individual:
                 times[10] += time.time() - tm
                 if self.num_alleles == 1:
                     tm = time.time()
-                    self.genotype_freqs[self.ploidy*chr(ord(a)+32)] = all_dist[0]
+                    self.genotype_freqs[2*chr(ord(a)+32)] = all_dist[0]
                     self.genotype_freqs[a + chr(ord(a)+32)] = all_dist[1]
                     self.genotype_freqs[2*a] = all_dist[2]
                     times[11] += time.time() - tm
@@ -154,9 +170,9 @@ class individual:
                     self.genotype_freqs = self.genotype_freqs.fromkeys(self.genotype_freqs, 0)
                     for n_g in new_genotypes: self.genotype_freqs[n_g] += 1
                     times[14] += time.time() - tm
-        tm = time.time()
-        self.storeData()
-        times[12] += time.time() - tm
+        # tm = time.time()
+        # self.storeData()
+        # times[12] += time.time() - tm
         return times
 
     def mutate_old(self):
@@ -195,13 +211,13 @@ class individual:
         for gt in self.genotype_freqs:
             tm = time.time()
             freq = pre_gtfs[gt]/self.pc
-            if not freq: continue
             times[4] += time.time() - tm
+            if not freq: continue
             tm = time.time()
             num_muts = self.rng.poisson(param_base*freq)
             times[13] += time.time() - tm
-            tm = time.time()
             if not num_muts: continue
+            tm = time.time()
             self.genotype_freqs[gt] -= num_muts
             self.genotype_freqs[gt.swapcase()] += num_muts
             times[14] += time.time() - tm
@@ -263,13 +279,14 @@ class individual:
         '''
         return [gt for gt in self.genotype_freqs if self.genotype_freqs[gt]]
     
-    def getGenotypeTransWeights(self) -> np.ndarray[float]:
+    def getGenotypeTransWeights(self):
         '''
         Get the genotypes' transmission weights.
 
         (Note: Intended to be used with transmission biases, but those are not currently implemented, so it just uses the base frequencies.)
         '''
-        return normalise(np.array(list(self.genotype_freqs.values())))
+        # return normalise(np.array(list(self.genotype_freqs.values())))
+        return [self.genotype_freqs[gt]/self.pc for gt in self.genotype_freqs]
 
     def infectMult(self, num: int=1) -> dict[str, int]:
         '''
@@ -284,11 +301,11 @@ class individual:
         if not gtfs: gtfs = self.genotype_freqs
         return random.choices(list(gtfs.keys()), self.getGenotypeTransWeights())[0]
     
-    def infectSelf(self, pc_num: int, strn: str):
+    def infectSelf(self, pc_num: int, strn: str, do_return: bool=False) -> list[str]:
         '''
         Infects the individual with the given strain using the given number of parasites.
         '''
-        if self.file is not None: self.file.write('\tinfectSelf\n')
+        # if self.file is not None: self.file.write('\tinfectSelf\n')
         if pc_num > self.pc: pc_num = self.pc
         old_gnts = self.getGenotypes()
         to_replace = self.infectMult(pc_num)
@@ -297,7 +314,7 @@ class individual:
             self.genotype_freqs[stn] -= to_replace[stn]
             self.genotype_freqs[strn_match] += to_replace[stn]
         # self.checkGtfs('infectSelf')
-        return list(set(old_gnts) - set(self.getGenotypes()))
+        if do_return: return list(set(old_gnts) - set(self.getGenotypes()))
     
     def infectSelfMult(self, mix: dict[str, int]):
         '''
@@ -307,17 +324,20 @@ class individual:
         if self.do_sr:
             self.is_new_inf = True
             mix = self.reproduce(mix)
-        if sum(mix.values()) >= self.pc:
-            self.setToMix(mix)
+        mix_sum = sum(mix.values())
+        if mix_sum >= self.pc:
+            self.setToMix(mix, mix_sum=mix_sum)
             return
         for strn in mix: self.infectSelf(mix[strn], strn)
     
-    def setToMix(self, mix: dict[str, int]):
+    def setToMix(self, mix: dict[str, int], mix_sum: int=0):
         '''
         Sets the individual's parasite distribution to the given strain distribution.
         '''
         # if self.file is not None: self.file.write('\tsetToMix\n')
-        pc_transmitted = sum(mix.values())
+        pc_transmitted = 0
+        if not mix_sum: pc_transmitted = sum(mix.values())
+        else: pc_transmitted = mix_sum
         rem = 0.
         matched = ''
         self.genotype_freqs = dict.fromkeys(self.genotype_freqs, 0)
@@ -396,9 +416,9 @@ class individual:
     def ploidy(self):
         return self.is_dip + 1
     
-    @property
-    def num_genes(self):
-        return self.pc*self.ploidy
+    # @property
+    # def num_genes(self):
+    #     return self.pc*self.ploidy
     
     @property
     def is_mixed(self):

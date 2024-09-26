@@ -77,10 +77,14 @@ class SIR:
         R = self.pop.rec[self.sn]
         I_UW = 0
         I_WS = 0
-        inf_indvs = self.pop.getSusInf(self.sn, is_present=True)
-        for ind in inf_indvs:
-            I_UW += ind.correction_det()            # unweighted infections (simple 'yes/no' on strain presence)
-            I_WS += ind.correction_det(sn=self.sn)  # weighted according to how prevalent the strain is inside the indv
+        # inf_indvs = self.pop.getSusInf(self.sn, is_present=True)
+        # for ind in inf_indvs:
+        #     I_UW += ind.correction_det()            # unweighted infections (simple 'yes/no' on strain presence)
+        #     I_WS += ind.correction_det(sn=self.sn)  # weighted according to how prevalent the strain is inside the indv
+        for ind in self.pop.individuals:
+            if ind.genotype_freqs[self.sn]:
+                I_UW += ind.correction_det()
+                I_WS += ind.correction_det(sn=self.sn)
         self.Rs = [0, # N*self.bd*0,     # 'legacy', since births are now pop-delineated (like deaths always were)
                     0, # self.ir*S*I/N,  # also 'legacy' (infections are now handled by vectors, not intra-pop things)
                     self.rr*I_WS,
@@ -103,7 +107,6 @@ class SIR:
         - `rpt`: The number of times to repeat said event.
         '''
         pop = self.pop
-        pc_trans_src = self.pop.pc_to_transmit
         if idx >= self.num_Es:
             pop = self.itr_keys[idx-self.num_Es]
             idx = 1
@@ -112,18 +115,18 @@ class SIR:
             num_loops = 0
             max_loops = 10000
             while num_inf < rpt:
-                random.shuffle(self.pop.individuals)
+                # random.shuffle(self.pop.individuals)
                 for indv in self.pop.individuals:
                     if indv.correction(sn=self.sn):
                         num_inf += 1
                         if indv.is_mixed:
-                            pop.infectMix(indv.infectMult(pc_trans_src))
+                            pop.infectMix(indv.infectMult(self.pop.pc_to_transmit))
                             num_mixes += 1
-                    if num_inf == rpt: break
+                    if num_inf >= rpt: break
                 num_loops += 1
                 if num_loops >= max_loops: break
             rpt -= num_mixes
-        if rpt: pop.addPop(list(np.multiply(self.Es[idx], rpt)), self.sn, pc_trans_src)
+        if rpt: pop.addPop(list(np.multiply(self.Es[idx], rpt)), self.sn, self.pop.pc_to_transmit)
     
     def newStrain(self, nsn='new'):
         '''

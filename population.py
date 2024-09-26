@@ -188,7 +188,7 @@ class population:
                         self.times[7] += time.time() - tm
                         for ind in indvs_to_infect[:to_change[strn]]:
                             tm = time.time()
-                            dead_gnts = ind.infectSelf(pc_trans, sn)
+                            dead_gnts = ind.infectSelf(pc_trans, sn, do_return=True)
                             for d_g in dead_gnts: inf_new[d_g] -= 1
                             # mod_inds += [ind]
                             self.times[8] += time.time() - tm
@@ -318,10 +318,11 @@ class population:
         # consider 'macro-ifying' this for speed
         is_a_sus = random.random() < self.sus/(self.sus + len(self.indvs))
         if is_a_sus:
-            new_indv = individual(gnts=self.gnts, tps=self.trans_ps, **self.indv_params)
+            new_indv = individual(gnts=self.gnts, tps=self.trans_ps, gr=self.gene_range, **self.indv_params)
             new_indv.setToMix(mix)
             self.indvs += [new_indv]
-            for gnt in new_indv.getGenotypes(): self.inf[gnt] += 1
+            for gnt in new_indv.genotype_freqs:
+                if new_indv.genotype_freqs[gnt]: self.inf[gnt] += 1
             self.sus -= 1
         else:
             # random.shuffle(self.indvs)
