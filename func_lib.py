@@ -1,4 +1,5 @@
 import numpy as np
+import os
 
 def normalise(l: np.ndarray[float]):
     '''
@@ -80,3 +81,17 @@ def dictify(ks: list, vs: list):
     Turns the given lists of keys and values into a dict. These should be the same length!
     '''
     return {k: v for k, v in zip(ks, vs)}
+
+def mkDir(*args):
+    '''
+    Makes a new directory with the given name, if it does not exist already. Takes an arbitrary number of arguments.
+    '''
+    [os.mkdir(arg) for arg in args if arg not in os.listdir()]
+
+def mkFile(*args):
+    '''
+    Makes a new file with the given name, if it does not exist already. Takes an arbitrary number of arguments.
+    '''
+    for a in args:
+        f = open(a, 'x')
+        f.close()

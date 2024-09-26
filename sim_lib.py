@@ -15,6 +15,7 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
     - `alleles`: The list of all possible alleles (allele objects). Irrelevant if not using the allele model.
     - `weight_infs`: Whether or not to weight infected data according to individuals' genotype frequencies.
     - `do_mix_start`: Whether or not to have a mixed distribution of infected individuals (wild & mutated) or uniform (just wild).
+    - `num_hist`: The number of histograms to generate (varying over time).
 
     ### Returns
     - `ts`: A NumPy array of the times visited by the simulation (neither equispaced nor integer).
@@ -24,6 +25,9 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
     - `ps_unwgt`: Like `ps`, but with unweighted infected information.
     - `vpis`: A list of the total number of infected vectors at each time.
     - `hpis`: Like `vpis`, but for hosts instead of vectors.
+    - `hists_v`: Histogram data for vectors.
+    - `hists_h`: Histogram data for hosts.
+    - `hist_tms`: The times at which histogram data were taken.
     '''
     tm = time.time()
     times = [0 for i in range(21)]

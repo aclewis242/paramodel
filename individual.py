@@ -11,9 +11,7 @@ class individual:
     pc = 0
     genotype_freqs: dict[str, int] = {}
     trans_ps = [[]]
-    file = None
     is_hap = False
-    do_sr = False
     mut_chance = 0.0
     para_gens = 1
     do_mutation = False
@@ -21,10 +19,7 @@ class individual:
     gene_range: list[int] = []
     pc_to_transmit = 0
     marked_for_death = False
-    store_chance = 0.0
-    is_new_inf = True
     all_sel_bias: dict[str, float] = {}
-    all_trans_bias: dict[str, float] = {}
     num_genes: int = 0
     pc_flt: float = 0.0
 
@@ -39,18 +34,19 @@ class individual:
         - `gdm`: The genetic drift model to use (ref. gen_funcs for options). Defaults to Wright-Fisher
         - `tps`: The matrix of transition probabilities to use for genetic drift. Generally the same as the output of `gdm`, but
             they can be pre-provided for the sake of speed
+        - `gr`: The range of allowed outcomes from the transition probability matrix (0-ploidy*pc). Not meant to vary, but taking it
+            as an argument helps with speed
+        - `rng`: The NumPy random number generator object to use. Again, not meant to vary, but making a new one for every individual
+            would be unnecessary & time-consuming
         - `pc`: The number of parasites present in the individual
         - `is_hap`: Whether or not the individual's parasites are haploid
-        - `do_sr`: Whether or not sexual reproduction occurs inside the individual
         - `mut_chance`: The chance that a parasite will experience a mutation in an individual generation
         - `para_gens`: The number of generations the parasites go through per time step
         - `do_mutation`: Whether or not mutations can occur inside the individual
         - `pc_to_transmit`: The number of parasites to transmit during a mixed infection
-        - `store_chance`: The chance that the individual's parasites' genetic makeup will be recorded in a file
         '''
         self.__dict__.update(kwargs)
         self.num_genes = self.pc*self.ploidy
-        self.pc_flt = float(self.pc)
         self.genotype_freqs = dict.fromkeys(gnts, 0)
         if gnt: self.genotype_freqs[gnt] = self.pc
         if self.is_dip:
@@ -72,20 +68,14 @@ class individual:
         Simulates the parasites' behavior. (`times` is for speed-recording purposes; refer to sim_lib for details.)
         '''
         for i in range(self.para_gens):
-            # tm = time.time()
             if self.do_mutation: times = self.mutate(times)
-            # self.checkGtfs('mutate')
-            # times[13] += time.time() - tm
             times = self.genDrift(times)
-            # self.checkGtfs('gendrift')
-            if self.do_sr: self.genotype_freqs = self.reproduce()
         return times
     
     def genDrift(self, times: list):
         '''
         Simulates genetic drift & selection. (`times` is for speed-recording purposes; refer to sim_lib for details.)
         '''
-        # if self.file is not None: self.file.write('\t'.join([str(self.genotype_freqs[g]) for g in self.genotype_freqs])+'\n')
         if not self.is_mixed: return times
         tm = time.time()
         allele_freqs = self.getAlleleFreqs()
@@ -138,35 +128,11 @@ class individual:
                 times[13] += time.time() - tm
         return times
 
-    def mutate_old(self):
-        '''
-        Effects the mutations observed over a single generation. Based on an older and slower algorithm -- more general than the now-standard
-        one, but much slower. Used only if there are mutations in a diploid, multi-locus individual (not currently part of the simulation)
-        '''
-        num_muts = self.rng.poisson(self.pc_flt*self.num_alleles*self.mut_chance)
-        for i in range(num_muts):
-            mut_src = self.infect()
-            gnt_split = mut_src.split('.')
-            all_idx = random.choice(list(range(self.num_alleles)))
-            all_to_mut = gnt_split[all_idx]
-            all_chances = dictify(genAlleles(all_to_mut), self.ploidyProbs())
-            del all_chances[all_to_mut]
-            new_sum = sum(all_chances.values())
-            all_chances = {al: all_chances[al]/new_sum for al in all_chances}
-            new_all = random.choices(list(all_chances.keys()), list(all_chances.values()))[0]
-            gnt_split[all_idx] = new_all
-            mut_tgt = '.'.join(gnt_split)
-            self.genotype_freqs[mut_src] -= 1
-            self.genotype_freqs[mut_tgt] += 1
-            if self.file is not None: self.file.write('\tmut\n')
-    
     def mutate(self, times: list):
         '''
         Effects the mutations observed over a single generation.
         '''
-        if self.is_dip:
-            self.mutate_old()
-            return times
+        if self.is_dip: return times
         tm = time.time()
         param_base = self.pc_flt*self.mut_chance
         pre_gtfs = self.genotype_freqs.copy()
@@ -187,35 +153,6 @@ class individual:
             self.genotype_freqs[gt.swapcase()] += num_muts
             times[17] += time.time() - tm
         return times
-    
-    def reproduce(self, s_d: dict[str, int]={}):
-        '''
-        Models sexual reproduction based on the given strain distribution. Note: haploid input distributions are okay, but it necessarily
-        returns a diploid output distribution!
-
-        (Currently deprecated)
-        '''
-        print('sr')
-        if not s_d: s_d = self.genotype_freqs
-        if (not self.is_new_inf or self.is_hap) or not self.do_sr: return s_d
-        new_dist = self.matchDist(dict.fromkeys(s_d, 0))
-        total_num = sum(s_d.values())
-        for i in range(total_num):
-            parents = [self.infect(s_d).split('.') for j in range(2)]
-            new_gnt = ''
-            for j in range(self.num_alleles):
-                new_all = ''
-                for par in parents: new_all += random.choice(par[j])
-                new_all_lst = list(new_all)
-                new_all_lst.sort()
-                new_gnt += (''.join(new_all_lst) + '.')
-            new_gnt = new_gnt[:-1]
-            new_dist[new_gnt] += 1
-        self.is_new_inf = False
-        if self.file is not None:
-            self.file.write(f'orig: {self.genotype_freqs}\n')
-            self.file.write(f'sr: {s_d} -> {new_dist}\n')
-        return new_dist
 
     def getAlleleFreqs(self):
         '''
@@ -241,7 +178,6 @@ class individual:
 
         (Note: Intended to be used with transmission biases, but those are not currently implemented, so it just uses the base frequencies.)
         '''
-        # return normalise(np.array(list(self.genotype_freqs.values())))
         return [self.genotype_freqs[gt]/self.pc_flt for gt in self.genotype_freqs]
 
     def infectMult(self, num: int=1) -> dict[str, int]:

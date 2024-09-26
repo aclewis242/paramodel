@@ -25,7 +25,6 @@ class SIR:
     Es = []
     num_Es = -1
     is_vector = False
-    do_mixed_infs = False
     
     def __init__(self, p0: population, **kwargs):
         '''
@@ -40,16 +39,14 @@ class SIR:
         - `ir`: Infection rate
         - `rr`: Recovery rate
         - `wi`: Waning immunity rate
-        - `itr`: Interspecific transmission rates from this model to other populations (dict)
+        - `itr`: Interspecific transmission rates from this model to other populations (dict pop:float)
         - `mr`: Mutation rate
         - `is_vector`: Whether or not this model describes a vector population (bool)
-        - `do_mixed_infs`: Whether or not this model does mixed infections
         '''
         self.pop = p0
         self.__dict__.update(kwargs)
         self.pop.is_vector = self.is_vector
         self.pop.pn = self.pn
-        self.pop.do_mixed_infs = self.do_mixed_infs
         self.pop.addStrain(self.sn)
         E1 = [1, 0, 0]  # Birth (used 3 times, one for each pop type)
         E2 = [-1, 1, 0] # Infection
@@ -58,7 +55,7 @@ class SIR:
         E5 = [0, -1, 0] # Death of infected
         E6 = [0, 0, -1] # Death of recovered
         E7 = [1, 0, -1] # Waning immunity
-        self.Es = [E1, E2, E3, E4, E5, E6, E7, E1, E1, E1] # first E1 is 'legacy'
+        self.Es = [E1, E2, E3, E4, E5, E6, E7, E1, E1, E1] # first E1, E2 are deprecated
         self.num_Es = len(self.Es)
         self.itr_keys = list(self.itr.keys())
         self.setRs()
@@ -67,35 +64,26 @@ class SIR:
         '''
         Generates the different transition rates based on the model's parameters and population.
         '''
-        # [S, I, R] = self.pop.getPop(self.sn)
-        # S = float(int(S))
-        # I = float(int(I))
-        # R = float(int(R))
-        # N = S + I + R
-        # if not N: return [0. for r in self.Rs]
         S = self.pop.sus
         R = self.pop.rec[self.sn]
         I_UW = 0
         I_WS = 0
-        # inf_indvs = self.pop.getSusInf(self.sn, is_present=True)
-        # for ind in inf_indvs:
-        #     I_UW += ind.correction_det()            # unweighted infections (simple 'yes/no' on strain presence)
-        #     I_WS += ind.correction_det(sn=self.sn)  # weighted according to how prevalent the strain is inside the indv
         for ind in self.pop.individuals:
             if ind.genotype_freqs[self.sn]:
-                I_UW += ind.correction_det()
-                I_WS += ind.correction_det(sn=self.sn)
-        self.Rs = [0, # N*self.bd*0,     # 'legacy', since births are now pop-delineated (like deaths always were)
-                    0, # self.ir*S*I/N,  # also 'legacy' (infections are now handled by vectors, not intra-pop things)
-                    self.rr*I_WS,
-                    self.bds*S,
-                    self.bd*I_UW,
-                    self.bd*R,
-                    self.wi*R,
-                    self.bds*S,
-                    self.bd*I_UW,
-                    self.bd*R] + [self.itr[p2]*I_WS*(p2.sus+p2.getSusInfNum(self.sn))/(self.pop.tot_pop+p2.tot_pop) for p2 in self.itr]
-                    # is the tot_pop # too high?
+                I_UW += ind.correction_det()            # unweighted infections (simple 'yes/no' on strain presence)
+                I_WS += ind.correction_det(sn=self.sn)  # weighted according to how prevalent the strain is inside the indv
+        self.Rs = [ 0,              # deprecated (formerly births)
+                    0,              # deprecated (formerly intra-population infections)
+                    self.rr*I_WS,   # recoveries
+                    self.bds*S,     # susceptible deaths
+                    self.bd*I_UW,   # infected deaths
+                    self.bd*R,      # recovered deaths
+                    self.wi*R,      # waning immunity
+                    self.bds*S,     # susceptible births
+                    self.bd*I_UW,   # infected births (as in births from infecteds, not newly-born infecteds)
+                    self.bd*R,      # recovered births (again as in births from recovereds)
+                    ] + [self.itr[p2]*I_WS*(p2.sus+p2.getSusInfNum(self.sn))/(self.pop.tot_pop+p2.tot_pop) for p2 in self.itr]
+                        # interspecific transmissions (cross-pop infections)
         return self.Rs
 
     def trans(self, idx: int, rpt: int=1):
@@ -140,6 +128,9 @@ class SIR:
     def mutate(self, param: str, fac: float, vec: 'SIR'=None):
         '''
         Effects the given parameter change.
+        
+        *Now obsolete. Largely a holdover from when alleles had macroscopic (population-level), not microscopic (individual-level),
+        effects on the simulation.*
 
         ### Parameters
         - `param`: The parameter of the model to change.
@@ -154,6 +145,9 @@ class SIR:
     def mutateMult(self, params: list[str], fac: float, vec: 'SIR'=None):
         '''
         Effects the given parameter changes.
+        
+        *Now obsolete. Largely a holdover from when alleles had macroscopic (population-level), not microscopic (individual-level),
+        effects on the simulation.*
 
         ### Parameters
         - `params`: The parameters of the model to change.
@@ -165,6 +159,9 @@ class SIR:
     def updateGenotype(self, g: str, alleles: list[allele], vec: 'SIR'=None):
         '''
         Generates a new model based on the given genotype.
+
+        *Now obsolete. Largely a holdover from when alleles had macroscopic (population-level), not microscopic (individual-level),
+        effects on the simulation.*
 
         ### Parameters
         - `g`: The genotype, as a string of characters corresponding to alleles.

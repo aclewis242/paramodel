@@ -50,12 +50,11 @@ INDV_HST = {
 INDVS = [INDV_VEC, INDV_HST]
 for INDV in INDVS: INDV['pc_to_transmit'] = int(INDV['pc']/2)
 
-D = allele(char='D', fav_pop='h1', unf_pop='h2', param='itr', fac=0.0)
+D = allele(char='D')
 
 mut_adv = 1.2
 wld_adv = 1/mut_adv
-D.sel_advs = {'h1': 1.0, 'vec': mut_adv}
-D.trans_advs = {'h1': 1.0, 'vec': 1.0}
+D.sel_advs = {'h1': 1.05, 'vec': 1.0}
 
 ALLELES = [D] # Do NOT have more than one allele here -- the simulation has been optimised for the single-locus case.
               # Adding more WILL break it!
@@ -63,8 +62,8 @@ ALLELES = [D] # Do NOT have more than one allele here -- the simulation has been
 PARAMS_1 = HST1
 PARAMS_2 = VEC
 
-def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=1200., nt: float=2., num_hist: int=20,
-        plot_res: bool=False, t_scale: float=1000., weight_infs: bool=True, do_mix_start: bool=False,):
+def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=1200., nt: float=2., num_hist: int=0,
+        plot_res: bool=False, t_scale: float=100., weight_infs: bool=True, do_mix_start: bool=False,):
     '''
     Run the simulation.
 
@@ -80,11 +79,8 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
     - `do_mix_start`: Whether or not to have a mixed distribution of infected individuals (wild & mutated) or uniform (just wild).
     '''
     [os.remove(file) for file in os.listdir() if file.endswith('.dat')]
-    if 'hists' not in os.listdir(): os.mkdir('hists')
-    f = open('inf_events_raw.dat', 'x')
-    f.close()
-    f = open('last_event.dat', 'x')
-    f.close()
+    mkDir('hists', 'old images')
+    mkFile('inf_events_raw.dat', 'last_event.dat')
     alleles = ALLELES
     p0 *= p_fac
     t_max = t_scale
