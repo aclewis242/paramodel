@@ -27,6 +27,7 @@ class population:
     gnts: list[str] = []
     trans_ps: list[list[float]] = []
     gene_range: list[int] = []
+    num_gnts: int=0
 
     def __init__(self, p0: list[int], pn: str='', isn: str='init', **kwargs):
         '''
@@ -61,6 +62,7 @@ class population:
         self.gnts: list[str] = []
         self.trans_ps: list[list[float]] = []
         self.gene_range: list[int] = []
+        self.num_gnts: int=0
     
     def getPop(self, sn: str='init') -> list[int]:
         '''

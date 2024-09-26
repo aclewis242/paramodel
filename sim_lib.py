@@ -125,6 +125,8 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
         test_indv = p.makeIndvs(sn=p.gnts[0], num_indvs=1)[0]
         p.trans_ps = test_indv.trans_ps
         p.gene_range = test_indv.gene_range
+        p.num_gnts = len(p.gnts)
+    for m in mdls: m.bds = m.bd/m.pop.num_gnts
 
     hpis = []
     vpis = []
@@ -143,12 +145,12 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
         tm = time.time()
         Xs = adaptSim(all_Rs/sum_Rs, sum_Rs, dt)
         times[1] += time.time() - tm
+        tm = time.time()
         for i_m in range(num_mdls):
             for i_r in range(num_Rs):
-                tm = time.time()
                 rpt = Xs[i_m*num_Rs+i_r]
                 if rpt: mdls[i_m].trans(i_r, rpt)
-                times[2] += time.time() - tm
+        times[2] += time.time() - tm
         tm = time.time()
         for i_p in range(num_pops):
             ps[i][i_p] = pops[i_p].getAllPop(weight=weight_infs)

@@ -64,7 +64,7 @@ INDV_VEC = {
 }
 INDV_HST = {
     'pc': int(1.2e6),
-    'mut_chance': 8e-7,
+    'mut_chance': 8e-6,
     'para_lsp': 2.,
     'is_hap': True,
     'do_sr': False,
@@ -82,9 +82,9 @@ B = allele(char='B', fav_pop='h1', unf_pop='h2', param='itr', fac=0.3)
 C = allele(char='C', fav_pop='h1', unf_pop='h2', param='rr', fac=-0.6)
 D = allele(char='D', fav_pop='h1', unf_pop='h2', param='itr', fac=0.0)
 
-mut_adv = 3.5
+mut_adv = 1.2
 wld_adv = 1/mut_adv
-D.sel_advs = {'h1': 1.05, 'vec': 0.00000001}
+D.sel_advs = {'h1': 1.05, 'vec': 1.0}
 D.trans_advs = {'h1': 1.0, 'vec': 1.0}
 
 ALLELES = [D]
@@ -94,7 +94,7 @@ PARAMS_2 = VEC
 PARAMS_3 = HST2
 
 def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=1200., nt: float=2., num_hist: int=0,
-        plot_res: bool=True, t_scale: float=100., do_allele_mod: bool=True, weight_infs: bool=True, do_mix_start: bool=False,):
+        plot_res: bool=False, t_scale: float=100., do_allele_mod: bool=True, weight_infs: bool=True, do_mix_start: bool=False,):
     '''
     Run the simulation.
 
@@ -150,9 +150,9 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
     print('Breakdown:')
     printFloatList(times_norm)
     print(f'Extra time: {ex_tm - sum(times)}')
-    for p in pops:
-        print(f'{p.pn} time breakdown:')
-        printFloatList(normPercentList(p.times))
+    # for p in pops:
+    #     print(f'{p.pn} time breakdown:')
+    #     printFloatList(normPercentList(p.times))
     [p.printDat() for p in pops]
     # dimensions of ps: layer 1 is times, layer 2 is models at that time, layer 3 is pop #s for that model
     f = open('inf_events.dat', 'x')
@@ -202,7 +202,7 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
         if plot_res: plt.show()
         plt.close()
     
-    # print(hist_tms)
+    # print(hists_h)
     hists_with_pn = {'vec': hists_v, 'h1': hists_h}
     hist_max = p0[0][1]
     for hpn in hists_with_pn:
@@ -210,7 +210,7 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
         for i in range(num_hist):
             tm = hist_tms[i]
             hist_2_p = [0.0] + hists_2_p[i] + [1.0]
-            plt.hist(hist_2_p, bins=300)
+            plt.hist(hist_2_p, bins=100)
             plt.title(f'Population {hpn}, time {roundNum(tm)}')
             plt.xlabel('Mutated (capital) allele frequencies')
             plt.ylabel('Individual count')
