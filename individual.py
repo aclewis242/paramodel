@@ -61,7 +61,6 @@ class individual:
         else: self.rng = rng
         if self.pc_to_transmit > self.pc: self.pc_to_transmit = self.pc
         self.marked_for_death = False
-        self.is_new_inf = True
 
     def simPara(self, times: list):
         '''
@@ -105,7 +104,7 @@ class individual:
                 all_prop_bool = bool(all_prop) # note: consider conditioning on hap instead of using ploidy (speed?)
                 self.genotype_freqs[self.ploidy*a] = all_prop_bool*self.pc
                 self.genotype_freqs[self.ploidy*chr(ord(a)+32)] = (not all_prop_bool)*self.pc
-                if self.is_dip: self.genotype_freqs[a + chr(ord(a)+32)] = 0
+                if self.is_dip: self.genotype_freqs[a + chr(ord(a)+32)] = 0 # switches to lowercase faster than .lower() method
                 times[10] += time.time() - tm
                 continue
             if self.is_hap:
@@ -118,7 +117,7 @@ class individual:
                 times[11] += time.time() - tm
             else:
                 tm = time.time()
-                probs = self.ploidyProbs(all_prop)
+                probs = [(1-all_prop)**2, 2*all_prop*(1-all_prop), all_prop**2]
                 all_dist = self.rng.multinomial(n=self.pc, pvals=probs)
                 times[12] += time.time() - tm
                 tm = time.time()
@@ -139,13 +138,12 @@ class individual:
         times[14] += time.time() - tm
         for gt in self.genotype_freqs:
             tm = time.time()
-            freq = pre_gtfs[gt]/self.pc_flt
-            mut_param = param_base*freq
+            mut_param = param_base*pre_gtfs[gt]/self.pc_flt
             times[15] += time.time() - tm
-            if not freq or mut_param < 0.05: continue
+            if mut_param < 0.05: continue
             tm = time.time()
             num_muts = self.rng.poisson(mut_param)
-            # print(f'num_muts {num_muts}, param {param_base*freq}')
+            # print(f'num_muts {num_muts}, param {mut_param}')
             times[16] += time.time() - tm
             if not num_muts: continue
             tm = time.time()
@@ -175,8 +173,6 @@ class individual:
     def getGenotypeTransWeights(self):
         '''
         Get the genotypes' transmission weights.
-
-        (Note: Intended to be used with transmission biases, but those are not currently implemented, so it just uses the base frequencies.)
         '''
         return [self.genotype_freqs[gt]/self.pc_flt for gt in self.genotype_freqs]
 
@@ -195,27 +191,26 @@ class individual:
     
     def infectSelf(self, pc_num: int, strn: str, do_return: bool=False) -> list[str]:
         '''
-        Infects the individual with the given strain using the given number of parasites.
+        Infects the individual itself.
+
+        ### Parameters
+        - `pc_num`: The number of parasites in the transmission.
+        - `strn`: The strain to infect it with.
+        - `do_return`: Whether or not to return the genotypes no longer present afterwards.
         '''
-        # if self.file is not None: self.file.write('\tinfectSelf\n')
-        if pc_num > self.pc: pc_num = self.pc
+        if pc_num > self.pc: pc_num = self.pc # simplify w/assumptions about relative pc sizes?
         old_gnts = self.getGenotypes()
         to_replace = self.infectMult(pc_num)
         strn_match = self.match(strn)
         for stn in to_replace:
             self.genotype_freqs[stn] -= to_replace[stn]
             self.genotype_freqs[strn_match] += to_replace[stn]
-        # self.checkGtfs('infectSelf')
         if do_return: return list(set(old_gnts) - set(self.getGenotypes()))
     
     def infectSelfMult(self, mix: dict[str, int]):
         '''
         Infects the individual with the given strain distribution.
         '''
-        # if self.file is not None: self.file.write('\tinfectSelfMult\n')
-        if self.do_sr:
-            self.is_new_inf = True
-            mix = self.reproduce(mix)
         mix_sum = sum(mix.values())
         if mix_sum >= self.pc:
             self.setToMix(mix, mix_sum=mix_sum)
@@ -224,9 +219,9 @@ class individual:
     
     def setToMix(self, mix: dict[str, int], mix_sum: int=0):
         '''
-        Sets the individual's parasite distribution to the given strain distribution.
+        Sets the individual's parasite distribution to the given strain distribution. (If the sum of the distribution is already known,
+        it can be provided as a keyword argument.)
         '''
-        # if self.file is not None: self.file.write('\tsetToMix\n')
         pc_transmitted = 0
         if not mix_sum: pc_transmitted = sum(mix.values())
         else: pc_transmitted = mix_sum
@@ -272,26 +267,11 @@ class individual:
         '''
         return random.random() < self.correction_det(sn)
     
-    def ploidyProbs(self, a_p: float=0.5):
-        if self.is_hap: return [1-a_p, a_p]
-        else: return [(1-a_p)**2, 2*a_p*(1-a_p), a_p**2]
-
-    def storeData(self, force: bool=False):
-        '''
-        Stores genotype frequency data, maybe (depends on `store_chance`).
-        '''
-        if self.file is None and (random.random() <= self.store_chance or force):
-            self.file = open(f'{int(random.random()*1e6)}.dat', 'x')
-            [self.file.write(f'{gnt}\t') for gnt in self.genotype_freqs]
-            self.file.write('\n')
-    
-    def rebuild(self):
-        '''
-        Currently deprecated; may eventually be used for deep copying.
-        '''
-        return
-    
     def checkGtfs(self, loc: str=''):
+        '''
+        Makes sure the genotype freq. values align with the total parasite #. Takes some identifying string (e.g. the source of the call)
+        as an argument.
+        '''
         if sum(self.genotype_freqs.values()) != self.pc:
             print(f'({loc}) pc {self.pc}, gtfs {self.genotype_freqs} (sum {sum(self.genotype_freqs.values())})')
             exit()
@@ -307,10 +287,6 @@ class individual:
     @property
     def ploidy(self):
         return self.is_dip + 1
-    
-    # @property
-    # def num_genes(self):
-    #     return self.pc*self.ploidy
     
     @property
     def is_mixed(self):

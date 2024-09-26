@@ -160,9 +160,6 @@ class SIR:
         '''
         Generates a new model based on the given genotype.
 
-        *Now obsolete. Largely a holdover from when alleles had macroscopic (population-level), not microscopic (individual-level),
-        effects on the simulation.*
-
         ### Parameters
         - `g`: The genotype, as a string of characters corresponding to alleles.
         - `alleles`: The list of all possible alleles, as allele objects.

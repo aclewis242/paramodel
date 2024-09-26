@@ -149,6 +149,8 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
         times[1] += time.time() - tm
         tm = time.time()
         Xs = adaptSim(all_Rs/sum_Rs, sum_Rs, dt)
+        times[3] += time.time() - tm
+        tm = time.time()
         for i_m in range(num_mdls):
             for i_r in range(num_Rs):
                 rpt = Xs[i_m*num_Rs+i_r]

@@ -14,7 +14,6 @@ VEC = {         # Parameters for transmission vector behavior (mosquito)
     'pn': 'vec',            # Short population name, used in console output & within the code
     'pn_full': 'Vector',    # Full population name, used in graph titles
     'is_vector': True,      # Whether or not the population is a disease vector
-    'do_mixed_infs': True,
 }
 HST1 = {
     'bd': 0.,
@@ -23,7 +22,6 @@ HST1 = {
     'wi': .20,
     'pn': 'h1',
     'pn_full': 'Host 1',
-    'do_mixed_infs': True,
 }
 ITR = 0.25
 
@@ -32,20 +30,14 @@ INDV_VEC = {
     'mut_chance': 4e-3,
     'para_lsp': 2.,
     'is_hap': False,
-    'do_sr': False,
     'do_mutation': False,
-    'do_indvs': True,
-    'do_sel_bias': True,
 }
 INDV_HST = {
     'pc': int(1.2e6),
     'mut_chance': 8e-6,
     'para_lsp': 2.,
     'is_hap': True,
-    'do_sr': False,
     'do_mutation': True,
-    'do_indvs': True,
-    'do_sel_bias': True,
 }
 INDVS = [INDV_VEC, INDV_HST]
 for INDV in INDVS: INDV['pc_to_transmit'] = int(INDV['pc']/2)

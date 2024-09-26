@@ -12,12 +12,11 @@ class population:
     is_vector = False
     indvs: list[individual] = []
     is_hap = False
-    indv_params = {} # pc, is_hap, do_sr, mut_chance, alleles
+    indv_params = {}
     rng: np.random.Generator = None
     pc_to_transmit = 0
     all_sel_bias: dict[str, float] = {}
     sel_bias_lst: dict[str, list[float]] = {}
-    do_sel_bias = True
     init_pop = 0
     times: list[float] = []
     gnts: list[str] = []
@@ -35,8 +34,6 @@ class population:
         - `isn`: The name of the initial strain
         - `is_vector`: Whether or not this population is a vector
         - `is_hap`: Whether or not this population is haploid
-        - `do_indvs`: Whether or not this population models infected individuals explicitly
-        - `do_mixed_infs`: Whether or not this population does mixed infections
         '''
         self.sus = p0[0] + 1 # adding 1 to ensure the population is always non-zero (irrelevant in the grand scheme of things)
         self.inf: dict[str, int] = {}
@@ -287,7 +284,6 @@ class population:
         '''
         Perform a mixed infection, using the given strain distribution.
         '''
-        # consider 'macro-ifying' this for speed
         is_a_sus = random.random() < self.sus/(self.sus + len(self.indvs))
         if is_a_sus:
             new_indv = individual(gnts=self.gnts, tps=self.trans_ps, gr=self.gene_range, **self.indv_params)
@@ -302,7 +298,7 @@ class population:
             init_gts = indv_to_infect.getGenotypes()
             indv_to_infect.infectSelfMult(mix)
             fin_gts = indv_to_infect.getGenotypes()
-            if fin_gts != init_gts:
+            if fin_gts != init_gts: # can likely be made meaningfully faster
                 gts_rmv = list(set(init_gts) - set(fin_gts))
                 gts_add = list(set(fin_gts) - set(init_gts))
                 for gt in gts_rmv: self.inf[gt] -= 1
@@ -318,6 +314,9 @@ class population:
         self.indv_params['all_sel_bias'] = self.all_sel_bias
 
     def getGntDist(self):
+        '''
+        Gets all the individuals' (capital/mutated) allele frequencies.
+        '''
         return [list(ind.getAlleleFreqs().values())[0]/ind.num_genes for ind in self.indvs]
 
     def refresh(self, update: bool=True):
