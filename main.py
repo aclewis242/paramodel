@@ -46,7 +46,7 @@ D = allele(char='D')
 
 mut_adv = 1.2
 wld_adv = 1/mut_adv
-D.sel_advs = {'h1': 1.05, 'vec': 1.0}
+D.sel_advs = {'h1': 1.0, 'vec': mut_adv}
 
 ALLELES = [D] # Do NOT have more than one allele here -- the simulation has been optimised for the single-locus case.
               # Adding more WILL break it!
@@ -55,7 +55,7 @@ PARAMS_1 = HST1
 PARAMS_2 = VEC
 
 def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=1200., nt: float=2., num_hist: int=0,
-        plot_res: bool=False, t_scale: float=100., weight_infs: bool=True, do_mix_start: bool=False,):
+        plot_res: bool=False, t_scale: float=1000., weight_infs: bool=True, do_mix_start: bool=False,):
     '''
     Run the simulation.
 

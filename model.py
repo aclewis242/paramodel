@@ -95,6 +95,8 @@ class SIR:
         - `rpt`: The number of times to repeat said event.
         '''
         pop = self.pop
+        self_sn = self.sn
+        pc_2_trans = self.pop.pc_to_transmit
         if idx >= self.num_Es:
             pop = self.itr_keys[idx-self.num_Es]
             idx = 1
@@ -102,19 +104,21 @@ class SIR:
             num_mixes = 0
             num_loops = 0
             max_loops = 10000
+            indvs_lst = self.pop.individuals
             while num_inf < rpt:
                 # random.shuffle(self.pop.individuals)
-                for indv in self.pop.individuals:
-                    if indv.correction(sn=self.sn):
+                for indv in indvs_lst:
+                    if not indv.genotype_freqs[self_sn]: continue
+                    elif indv.correction(sn=self_sn):
                         num_inf += 1
                         if indv.is_mixed:
-                            pop.infectMix(indv.infectMult(self.pop.pc_to_transmit))
+                            pop.infectMix(indv.infectMult(pc_2_trans))
                             num_mixes += 1
                     if num_inf >= rpt: break
                 num_loops += 1
                 if num_loops >= max_loops: break
             rpt -= num_mixes
-        if rpt: pop.addPop(list(np.multiply(self.Es[idx], rpt)), self.sn, self.pop.pc_to_transmit)
+        if rpt: pop.addPop(list(np.multiply(self.Es[idx], rpt)), self_sn, pc_2_trans)
     
     def newStrain(self, nsn='new'):
         '''

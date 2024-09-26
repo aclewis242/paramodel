@@ -60,7 +60,6 @@ class individual:
         if rng is None: self.rng = np.random.default_rng()
         else: self.rng = rng
         if self.pc_to_transmit > self.pc: self.pc_to_transmit = self.pc
-        self.marked_for_death = False
 
     def simPara(self, times: list):
         '''

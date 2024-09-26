@@ -368,6 +368,7 @@ class population:
     
     @property
     def tot_pop(self):
+        if self.is_hap and self.init_pop: return self.init_pop
         return int(self.sus + self.num_inf + sum(self.rec.values()))
     
     @property
