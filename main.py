@@ -5,24 +5,6 @@ import matplotlib.pyplot as plt
 import time
 import os
 
-### Deprecated parameters
-STAB = {        # Parameters for stable behavior (equilibrium)
-    'bd': 0,        # Birth/death rate
-    'ir': 60,       # Infection rate
-    'rr': 28,       # Recovery rate
-    'wi': 10.5,     # Waning immunity rate
-    'nm': 'Stable'
-}
-EPI = {         # Parameters for epidemic behavior (short-lived spikes of infection)
-    'bd': 0,        # Birth/death rate
-    'ir': 4e3,      # Infection rate
-    'rr': 1e3,      # Recovery rate
-    'wi': 7e1,       # Waning immunity rate
-    'nm': 'Epidemic'
-}
-
-### Up-to-date parameters
-# Note: The interspecific transmission rate is in the main method itself!
 # Rates are in terms of '# events expected per day'
 VEC = {         # Parameters for transmission vector behavior (mosquito)
     'bd': 0.3,  # Birth/death rate
@@ -43,14 +25,7 @@ HST1 = {
     'pn_full': 'Host 1',
     'do_mixed_infs': True,
 }
-HST2 = {
-    'bd': 0.,
-    'ir': 0.,
-    'rr': .05,
-    'wi': .20,
-    'pn': 'h2',
-    'pn_full': 'Host 2',
-}
+ITR = 0.25
 
 INDV_VEC = {
     'pc': 120,
@@ -75,26 +50,21 @@ INDV_HST = {
 INDVS = [INDV_VEC, INDV_HST]
 for INDV in INDVS: INDV['pc_to_transmit'] = int(INDV['pc']/2)
 
-# for p_fac of 5e4, nt 2e4: epidemic params are 4e3, 1e3, 7e1 for ir, rr, wi respectively (stab/epi)
-
-A = allele(char='A', fav_pop='h1', unf_pop='h2', param='itr', fac=0.3)
-B = allele(char='B', fav_pop='h1', unf_pop='h2', param='itr', fac=0.3)
-C = allele(char='C', fav_pop='h1', unf_pop='h2', param='rr', fac=-0.6)
 D = allele(char='D', fav_pop='h1', unf_pop='h2', param='itr', fac=0.0)
 
 mut_adv = 1.2
 wld_adv = 1/mut_adv
-D.sel_advs = {'h1': 1.05, 'vec': 1.0}
+D.sel_advs = {'h1': 1.0, 'vec': mut_adv}
 D.trans_advs = {'h1': 1.0, 'vec': 1.0}
 
-ALLELES = [D]
+ALLELES = [D] # Do NOT have more than one allele here -- the simulation has been optimised for the single-locus case.
+              # Adding more WILL break it!
 
 PARAMS_1 = HST1
 PARAMS_2 = VEC
-PARAMS_3 = HST2
 
-def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=1200., nt: float=2., num_hist: int=0,
-        plot_res: bool=False, t_scale: float=100., do_allele_mod: bool=True, weight_infs: bool=True, do_mix_start: bool=False,):
+def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=1200., nt: float=2., num_hist: int=20,
+        plot_res: bool=False, t_scale: float=1000., weight_infs: bool=True, do_mix_start: bool=False,):
     '''
     Run the simulation.
 
@@ -102,9 +72,9 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
     - `p0`: The initial population ratios (S, I, R) as a NumPy array of 3-element NumPy arrays.
     - `p_fac`: The scale factor on population.
     - `nt`: Time steps per day. Alternatively, 24/`nt` is hours per time step.
+    - `num_hist`: The number of histograms to generate (varying over time).
     - `plot_res`: Whether or not to display the results' graph, as a bool.
     - `t_scale`: The number of days to run the simulation for.
-    - `do_allele_mod`: Whether or not to use the allele-based mutation model, as a bool.
     - `weight_infs`: Whether or not to display 'weighted' data for infections (weighted according to the strains' relative
         genotype frequencies).
     - `do_mix_start`: Whether or not to have a mixed distribution of infected individuals (wild & mutated) or uniform (just wild).
@@ -115,8 +85,7 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
     f.close()
     f = open('last_event.dat', 'x')
     f.close()
-    alleles = []
-    if do_allele_mod: alleles = ALLELES
+    alleles = ALLELES
     p0 *= p_fac
     t_max = t_scale
     for i in range(len(INDVS)):
@@ -124,24 +93,15 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
         para_gens = int((24/nt)/i_params['para_lsp'])
         i_params['para_gens'] = para_gens
         i_params['alleles'] = alleles
-        # i_params['store_chance'] = 5e1/(p_fac*t_scale*nt*i_params['pc'])
     nt = float(int(nt*t_scale))
-    # [p0_1, p0_2, p0_3] = [population(p0[i], **INDV) for i in range(3)]
     hosts_1 = population(p0[0], **INDV_HST)
     vectors = population(p0[1], **INDV_VEC)
     m1 = SIR(hosts_1, **PARAMS_1)
     m2 = SIR(vectors, **PARAMS_2)
-    # m3 = SIR(p0_3, **PARAMS_3)
-    itr_h1 = 0.25 # h1 <-> vec
-    itr_h2 = 0.10 # h2 <-> vec
-    # m1.itr = {p0_2: itr_h1, p0_3: 0.} # the number represents the rate at which m1 infects that population
-    # m2.itr = {p0_1: itr_h1, p0_3: itr_h2}
-    # m3.itr = {p0_1: 0., p0_2: itr_h2}
-    m1.itr = {vectors: itr_h1}
-    m2.itr = {hosts_1: itr_h1}
-    t0 = time.time()
-    # mdls = [m1, m2, m3]
+    m1.itr = {vectors: ITR}
+    m2.itr = {hosts_1: ITR}
     mdls = [m1, m2]
+    t0 = time.time()
     ts, ps, times, pops, ps_unwgt, vpis, hpis, hists_v, hists_h, hist_tms = simShell(
         t_max, mdls, nt=nt, alleles=alleles, weight_infs=weight_infs, do_mix_start=do_mix_start, num_hist=num_hist)
     ex_tm = time.time() - t0
@@ -166,7 +126,7 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
     f.close()
     f_raw.close()
     
-    def getDims(lst: list, tab: str=''):
+    def getDims(lst: list, tab: str=''): # Displays the dimensions of the given list. Useful when handling complex/unorthodox structures.
         if type(lst) == list:
             print(f'{tab}list of dim {len(lst)} containing:')
             getDims(lst[0], f'{tab}\t')
@@ -202,7 +162,6 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
         if plot_res: plt.show()
         plt.close()
     
-    # print(hists_h)
     hists_with_pn = {'vec': hists_v, 'h1': hists_h}
     hist_max = p0[0][1]
     for hpn in hists_with_pn:

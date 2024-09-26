@@ -7,7 +7,7 @@ class allele:
     unf_pop = ''
     param = ''
     fac = 0.0
-    sel_advs: dict[str, float] = {} # specifically for mutated allele
+    sel_advs: dict[str, float] = {} # specifically for mutated allele (capital)
     trans_advs: dict[str, float] = {}
 
     def __init__(self, **kwargs):

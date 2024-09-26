@@ -51,7 +51,6 @@ class population:
         self.pn = pn
         self.__dict__.update(kwargs)
         self.indv_params = kwargs
-        self.indv_params['num_alleles'] = len(self.indv_params['alleles'])
         self.rng = np.random.default_rng()
         self.indv_params['rng'] = self.rng
         if not self.do_indvs: self.do_mixed_infs = False
@@ -364,7 +363,6 @@ class population:
         self.indv_params['all_trans_bias'] = self.all_trans_bias
 
     def getGntDist(self):
-        if self.indvs[0].num_alleles != 1: return
         return [list(ind.getAlleleFreqs().values())[0]/ind.num_genes for ind in self.indvs]
 
     def refresh(self, update: bool=True):
