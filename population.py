@@ -78,7 +78,7 @@ class population:
         if weight and self.do_indvs:
             infs = dict.fromkeys(infs, 0)
             for ind in self.indvs:
-                for gt in ind.genotype_freqs: infs[gt] += ind.genotype_freqs[gt]/ind.pc
+                for gt in ind.genotype_freqs: infs[gt] += ind.genotype_freqs[gt]/ind.pc_flt
         return [self.sus] + list(infs.values()) + list(self.rec.values())
     
     def getAllPopNms(self):

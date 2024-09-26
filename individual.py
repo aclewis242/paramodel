@@ -27,7 +27,8 @@ class individual:
     all_sel_bias: dict[str, float] = {}
     all_trans_bias: dict[str, float] = {}
     gtf_wgts: dict[str, float] = {}
-    num_genes: int=0
+    num_genes: int = 0
+    pc_flt: float = 0.0
 
     def __init__(self, gnts: list[str]=[], gnt: str='', gdm=wf, tps: list[list[float]]=[], gr: list[int]=[], rng: np.random.Generator=None,
                   **kwargs):
@@ -51,6 +52,7 @@ class individual:
         '''
         self.__dict__.update(kwargs)
         self.num_genes = self.pc*self.ploidy
+        self.pc_flt = float(self.pc)
         self.genotype_freqs = dict.fromkeys(gnts, 0)
         if gnt: self.genotype_freqs[gnt] = self.pc
         if self.is_dip:
@@ -107,7 +109,7 @@ class individual:
             #     exit()
             all_prop = all_freq/self.num_genes
             asb = self.all_sel_bias[a]
-            w_avg = asb*all_prop + (1 - all_prop)
+            w_avg = asb*all_prop + (1. - all_prop)
             all_prop *= asb/w_avg
             # potential speed increase: condition on new_allele_freqs not being a nothing (0 or 1)
             # if self.is_dip and (new_allele_freqs[a] and new_allele_freqs[a] != self.num_genes):
@@ -132,10 +134,9 @@ class individual:
                 continue
             if self.is_hap and self.num_alleles == 1:
                 tm = time.time()
-                pc_flt = float(self.pc)
-                gtfs_big = round(all_prop*pc_flt)
-                gtfs_sml = round((1-all_prop)*pc_flt)
-                if gtfs_big + gtfs_sml > pc_flt: gtfs_sml = self.pc - gtfs_big
+                gtfs_big = round(all_prop*self.pc_flt)
+                gtfs_sml = round((1-all_prop)*self.pc_flt)
+                if gtfs_big + gtfs_sml > self.pc: gtfs_sml = self.pc - gtfs_big
                 self.genotype_freqs[a] = gtfs_big
                 self.genotype_freqs[chr(ord(a)+32)] = gtfs_sml
                 times[9] += time.time() - tm
@@ -180,7 +181,7 @@ class individual:
         Effects the mutations observed over a single generation. Based on an older and slower algorithm -- more general than the now-standard
         one, but much slower. Used only if there are mutations in a diploid, multi-locus individual (not currently part of the simulation)
         '''
-        num_muts = self.rng.poisson(self.pc*self.num_alleles*self.mut_chance)
+        num_muts = self.rng.poisson(self.pc_flt*self.num_alleles*self.mut_chance)
         for i in range(num_muts):
             mut_src = self.infect()
             gnt_split = mut_src.split('.')
@@ -205,16 +206,18 @@ class individual:
             self.mutate_old()
             return times
         tm = time.time()
-        param_base = self.pc*self.num_alleles*self.mut_chance
+        param_base = self.pc_flt*self.num_alleles*self.mut_chance
         pre_gtfs = self.genotype_freqs.copy()
         times[1] += time.time() - tm
         for gt in self.genotype_freqs:
             tm = time.time()
-            freq = pre_gtfs[gt]/self.pc
+            freq = pre_gtfs[gt]/self.pc_flt
+            mut_param = param_base*freq
             times[4] += time.time() - tm
-            if not freq: continue
+            if not freq or mut_param < 0.05: continue
             tm = time.time()
-            num_muts = self.rng.poisson(param_base*freq)
+            num_muts = self.rng.poisson(mut_param)
+            # print(f'num_muts {num_muts}, param {param_base*freq}')
             times[13] += time.time() - tm
             if not num_muts: continue
             tm = time.time()
@@ -286,7 +289,7 @@ class individual:
         (Note: Intended to be used with transmission biases, but those are not currently implemented, so it just uses the base frequencies.)
         '''
         # return normalise(np.array(list(self.genotype_freqs.values())))
-        return [self.genotype_freqs[gt]/self.pc for gt in self.genotype_freqs]
+        return [self.genotype_freqs[gt]/self.pc_flt for gt in self.genotype_freqs]
 
     def infectMult(self, num: int=1) -> dict[str, int]:
         '''
@@ -343,7 +346,7 @@ class individual:
         self.genotype_freqs = dict.fromkeys(self.genotype_freqs, 0)
         for strn in mix:
             matched = self.match(strn)
-            amt_raw = self.pc*(mix[strn]/pc_transmitted) + rem
+            amt_raw = self.pc_flt*(mix[strn]/pc_transmitted) + rem
             amt = int(amt_raw)
             rem = amt_raw - amt
             self.genotype_freqs[matched] += amt
@@ -371,7 +374,7 @@ class individual:
         'Corrects' for multi-counting by weighting the individual according to either the number of strains present within it (no parameter),
         or how prevalent the given strain is.
         '''
-        if sn: return self.genotype_freqs[sn]/self.pc
+        if sn: return self.genotype_freqs[sn]/self.pc_flt
         else: return 1/len(self.getGenotypes())
     
     def correction(self, sn: str=''):
