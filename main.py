@@ -55,7 +55,7 @@ PARAMS_1 = HST1
 PARAMS_2 = VEC
 
 def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=1200., nt: float=2., num_hist: int=0,
-        plot_res: bool=False, t_scale: float=1000., weight_infs: bool=True, do_mix_start: bool=False,):
+        plot_res: bool=False, t_scale: float=200., weight_infs: bool=True, do_mix_start: bool=False,):
     '''
     Run the simulation.
 
