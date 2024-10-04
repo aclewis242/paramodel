@@ -10,13 +10,11 @@ class individual:
     '''
     pc = 0
     genotype_freqs: dict[str, int] = {}
-    trans_ps = [[]]
     is_hap = False
     mut_chance = 0.0
     para_gens = 1
     do_mutation = False
     rng: np.random.Generator = None
-    gene_range: list[int] = []
     pc_to_transmit = 0
     marked_for_death = False
     all_sel_bias: dict[str, float] = {}
@@ -24,8 +22,7 @@ class individual:
     num_genes: int = 0
     pc_flt: float = 0.0
 
-    def __init__(self, gnts: list[str]=[], gnt: str='', gdm=wf, tps: list[list[float]]=[], gr: list[int]=[], rng: np.random.Generator=None,
-                  **kwargs):
+    def __init__(self, gnts: list[str]=[], gnt: str='', rng: np.random.Generator=None, **kwargs):
         '''
         Initialises the individual.
 
@@ -50,14 +47,6 @@ class individual:
         self.num_genes = self.pc*self.ploidy
         self.genotype_freqs = dict.fromkeys(gnts, 0)
         if gnt: self.genotype_freqs[gnt] = self.pc
-        if self.is_dip:
-            if not gr: self.gene_range: list[int] = list(range(self.num_genes+1))
-            else: self.gene_range = gr
-            if not tps: self.trans_ps = gdm(self.num_genes)
-            else: self.trans_ps = tps
-        else:
-            self.trans_ps = [[]]
-            self.gene_range: list[int] = []
         if rng is None: self.rng = np.random.default_rng()
         else: self.rng = rng
         if self.pc_to_transmit > self.pc: self.pc_to_transmit = self.pc
@@ -91,13 +80,7 @@ class individual:
             all_prop *= asb/w_avg
             times[8] += time.time() - tm
             tm = time.time()
-            if self.is_dip:
-                all_trans = round(all_prop*self.num_genes)
-                # if not all_trans or all_trans == self.num_genes:
-                #     all_prop = float(bool(all_trans))
-                #     print(f'init cond: {all_prop}')
-                # else:
-                all_prop = random.choices(self.gene_range, self.trans_ps[all_trans])[0]/self.num_genes
+            if self.is_dip: all_prop = self.rng.binomial(self.num_genes, all_prop)/self.num_genes
             times[9] += time.time() - tm
             if not all_prop or all_prop == 1:
                 tm = time.time()

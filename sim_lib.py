@@ -127,9 +127,6 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
     [p.updateSelBiases(alleles) for p in pops]
     for p in pops:
         p.init_pop = p.tot_pop
-        test_indv = p.makeIndvs(sn=p.gnts[0], num_indvs=1)[0]
-        p.trans_ps = test_indv.trans_ps
-        p.gene_range = test_indv.gene_range
         p.num_gnts = len(p.gnts)
     for m in mdls: m.bds = m.bd/m.pop.num_gnts
 

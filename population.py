@@ -20,8 +20,6 @@ class population:
     init_pop = 0
     times: list[float] = []
     gnts: list[str] = []
-    trans_ps: list[list[float]] = []
-    gene_range: list[int] = []
     num_gnts = 0
 
     def __init__(self, p0: list[int], pn: str='', isn: str='init', **kwargs):
@@ -51,8 +49,6 @@ class population:
         self.all_transm_probs: dict[str, float] = {}
         self.times: list[float] = [0 for i in range(15)]
         self.gnts: list[str] = []
-        self.trans_ps: list[list[float]] = []
-        self.gene_range: list[int] = []
     
     def getPop(self, sn: str='init') -> list[int]:
         '''
@@ -239,8 +235,7 @@ class population:
         '''
         Make the given number of individuals with the given strain.
         '''
-        return [individual(gnts=self.gnts, gnt=sn, tps=self.trans_ps, gr=self.gene_range, **self.indv_params)
-                for i in range(int(num_indvs))]
+        return [individual(gnts=self.gnts, gnt=sn, **self.indv_params) for i in range(int(num_indvs))]
 
     def addStrain(self, nsn: str):
         '''
@@ -290,7 +285,7 @@ class population:
         if is_empty: return
         is_a_sus = random.random() < self.sus/(self.sus + len(self.indvs))
         if is_a_sus:
-            new_indv = individual(gnts=self.gnts, tps=self.trans_ps, gr=self.gene_range, **self.indv_params)
+            new_indv = individual(gnts=self.gnts, **self.indv_params)
             new_indv.setToMix(mix)
             self.indvs += [new_indv]
             for gnt in new_indv.genotype_freqs:

@@ -45,10 +45,10 @@ for INDV in INDVS: INDV['pc_to_transmit'] = int(INDV['pc']/2)
 
 D = allele(char='D')
 
-mut_adv = 1.2
+mut_adv = 1.05
 wld_adv = 1/mut_adv
-D.sel_advs = {'h1': 1.0, 'vec': 1.0}
-transm_p = 1.0
+D.sel_advs = {'h1': mut_adv, 'vec': 1.0}
+transm_p = 0.5
 D.transm_probs = {'h1': transm_p, 'vec': transm_p} # pop ID is the source -- e.g. 'h1' means 'prob of transmission from h1'
 D.base_transm_probs = {'h1': BTP, 'vec': BTP} # for wild-type allele
 
@@ -76,7 +76,7 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
     '''
     [os.remove(file) for file in os.listdir() if file.endswith('.dat')]
     mkDir('hists', 'old images')
-    mkFile('inf_events_raw.dat', 'last_event.dat')
+    mkFile('inf_events_raw.dat', 'last_event.dat',)
     alleles = ALLELES
     p0 *= p_fac
     t_max = t_scale
