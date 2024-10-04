@@ -5,7 +5,7 @@ def normalise(l: np.ndarray[float]):
     '''
     Normalises the given list such that its sum is 1.
     '''
-    return l/sum(l)
+    return l/sum(l) # numpy is not fast. maybe use list comprehension instead?
 
 def fn(f_n: str):
     '''

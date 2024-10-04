@@ -16,13 +16,13 @@ class population:
     rng: np.random.Generator = None
     pc_to_transmit = 0
     all_sel_bias: dict[str, float] = {}
-    sel_bias_lst: dict[str, list[float]] = {}
+    all_transm_probs: dict[str, float] = {}
     init_pop = 0
     times: list[float] = []
     gnts: list[str] = []
     trans_ps: list[list[float]] = []
     gene_range: list[int] = []
-    num_gnts: int=0
+    num_gnts = 0
 
     def __init__(self, p0: list[int], pn: str='', isn: str='init', **kwargs):
         '''
@@ -48,12 +48,11 @@ class population:
         self.indv_params['rng'] = self.rng
         self.indv_params['pc_flt'] = float(self.indv_params['pc'])
         self.all_sel_bias: dict[str, float] = {}
-        self.sel_bias_lst: dict[str, list[float]] = {}
+        self.all_transm_probs: dict[str, float] = {}
         self.times: list[float] = [0 for i in range(15)]
         self.gnts: list[str] = []
         self.trans_ps: list[list[float]] = []
         self.gene_range: list[int] = []
-        self.num_gnts: int=0
     
     def getPop(self, sn: str='init') -> list[int]:
         '''
@@ -137,6 +136,7 @@ class population:
         self.times[3] += time.time() - tm
         if I > 0:
             tm = time.time()
+            # print('argh')
             sus_indvs = self.getSusInf(sn)
             strain_indvs = {sn_i: self.getSusInf(sn_i, is_present=True, indvs_lst=sus_indvs) for sn_i in self.inf}
             sus_pop_nums = [self.sus] + [len(strain_indvs[sn_i]) if sn != sn_i else 0 for sn_i in self.inf]
@@ -284,6 +284,10 @@ class population:
         '''
         Perform a mixed infection, using the given strain distribution.
         '''
+        is_empty = True
+        for gt in mix:
+            if mix[gt]: is_empty = False
+        if is_empty: return
         is_a_sus = random.random() < self.sus/(self.sus + len(self.indvs))
         if is_a_sus:
             new_indv = individual(gnts=self.gnts, tps=self.trans_ps, gr=self.gene_range, **self.indv_params)
@@ -309,9 +313,16 @@ class population:
         Updates the population's selection (as well as transmission) biases based on the properties of the given alleles.
         '''
         self.all_sel_bias: dict[str, float] = {}
-        for a in alleles: self.all_sel_bias[a.char] = a.sel_advs[self.pn]
-        for ind in self.indvs: ind.all_sel_bias = self.all_sel_bias.copy()
+        self.all_transm_probs: dict[str, float] = {}
+        for a in alleles:
+            self.all_sel_bias[a.char] = a.sel_advs[self.pn]
+            self.all_transm_probs[a.char] = a.transm_probs[self.pn]
+            self.all_transm_probs[a.char.lower()] = a.base_transm_probs[self.pn]
+        for ind in self.indvs:
+            ind.all_sel_bias = self.all_sel_bias.copy()
+            ind.all_transm_probs = self.all_transm_probs.copy()
         self.indv_params['all_sel_bias'] = self.all_sel_bias
+        self.indv_params['all_transm_probs'] = self.all_transm_probs
 
     def getGntDist(self):
         '''

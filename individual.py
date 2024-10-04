@@ -20,6 +20,7 @@ class individual:
     pc_to_transmit = 0
     marked_for_death = False
     all_sel_bias: dict[str, float] = {}
+    all_transm_probs: dict[str, float] = {}
     num_genes: int = 0
     pc_flt: float = 0.0
 
@@ -169,24 +170,43 @@ class individual:
         '''
         return [gt for gt in self.genotype_freqs if self.genotype_freqs[gt]]
     
-    def getGenotypeTransWeights(self):
-        '''
-        Get the genotypes' transmission weights.
-        '''
+    # def getGenotypeTransWeights(self):
+    #     '''
+    #     Get the genotypes' transmission weights.
+    #     '''
+    #     weights_unnorm = [self.all_transm_probs[gt[0]]*self.genotype_freqs[gt]/self.pc_flt for gt in self.genotype_freqs]
+    #     wgts_sum = sum(weights_unnorm)
+    #     return [wgt_unnorm/wgts_sum for wgt_unnorm in weights_unnorm], wgts_sum
+    
+    def getGenotypeTransWeights_unwgt(self):
         return [self.genotype_freqs[gt]/self.pc_flt for gt in self.genotype_freqs]
 
-    def infectMult(self, num: int=1) -> dict[str, int]:
-        '''
-        Performs multiple infections. Returns a dict of strain to # times infected.
-        '''
-        return dictify(self.genotype_freqs.keys(), self.rng.multinomial(num, self.getGenotypeTransWeights()))
+    # def infectMult(self, num: int=1) -> dict[str, int]:
+    #     '''
+    #     Performs multiple infections. Returns a dict of strain to # times infected.
+    #     '''
+    #     gtf_wgts, num_adj = self.getGenotypeTransWeights()
+    #     print(f'gtf_wgts: {gtf_wgts}, num_adj: {num_adj}, num: {num}, gtfs: {self.genotype_freqs}')
+    #     exit()
+    #     return dictify(self.genotype_freqs.keys(), self.rng.multinomial(round(num*num_adj), gtf_wgts))
+
+    def doesContactTransmit(self):
+        gtf_wgt_sum = 0
+        for gt in self.genotype_freqs: gtf_wgt_sum += self.all_transm_probs[gt[0]]*self.genotype_freqs[gt]/self.pc_flt
+        return random.random() < gtf_wgt_sum
+
+    def infectMix(self, pc_num: int=1, do_test_contact: bool=True):
+        if do_test_contact:
+            if not self.doesContactTransmit(): return dict.fromkeys(self.genotype_freqs, 0)
+        return dictify(self.genotype_freqs.keys(), self.rng.multinomial(pc_num, self.getGenotypeTransWeights_unwgt()))
 
     def infect(self, gtfs: dict[str, int]={}):
         '''
-        Performs an infection.
+        Performs an infection. (Obsolete?)
         '''
         if not gtfs: gtfs = self.genotype_freqs
-        return random.choices(list(gtfs.keys()), self.getGenotypeTransWeights())[0]
+        print('doing infect method (this shouldn\'t be happening anywhere, I think)')
+        return random.choices(list(gtfs.keys()), self.getGenotypeTransWeights_unwgt())[0]
     
     def infectSelf(self, pc_num: int, strn: str, do_return: bool=False) -> list[str]:
         '''
@@ -199,7 +219,7 @@ class individual:
         '''
         if pc_num > self.pc: pc_num = self.pc # simplify w/assumptions about relative pc sizes?
         old_gnts = self.getGenotypes()
-        to_replace = self.infectMult(pc_num)
+        to_replace = self.infectMix(pc_num, do_test_contact=False)
         strn_match = self.match(strn)
         for stn in to_replace:
             self.genotype_freqs[stn] -= to_replace[stn]

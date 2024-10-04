@@ -23,7 +23,8 @@ HST1 = {
     'pn': 'h1',
     'pn_full': 'Host 1',
 }
-ITR = 0.25
+BTP = 0.5
+ITR = 0.25 *(1/BTP)
 
 INDV_VEC = {
     'pc': 120,
@@ -46,7 +47,10 @@ D = allele(char='D')
 
 mut_adv = 1.2
 wld_adv = 1/mut_adv
-D.sel_advs = {'h1': 1.0, 'vec': mut_adv}
+D.sel_advs = {'h1': 1.0, 'vec': 1.0}
+transm_p = 1.0
+D.transm_probs = {'h1': transm_p, 'vec': transm_p} # pop ID is the source -- e.g. 'h1' means 'prob of transmission from h1'
+D.base_transm_probs = {'h1': BTP, 'vec': BTP} # for wild-type allele
 
 ALLELES = [D] # Do NOT have more than one allele here -- the simulation has been optimised for the single-locus case.
               # Adding more WILL break it!
@@ -55,7 +59,7 @@ PARAMS_1 = HST1
 PARAMS_2 = VEC
 
 def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=1200., nt: float=2., num_hist: int=0,
-        plot_res: bool=False, t_scale: float=200., weight_infs: bool=True, do_mix_start: bool=False,):
+        plot_res: bool=False, t_scale: float=100., weight_infs: bool=True, do_mix_start: bool=False,):
     '''
     Run the simulation.
 

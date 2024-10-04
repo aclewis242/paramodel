@@ -103,6 +103,7 @@ class SIR:
             num_inf = 0
             num_mixes = 0
             num_loops = 0
+            num_failed_trans = 0
             max_loops = 10000
             indvs_lst = self.pop.individuals
             while num_inf < rpt:
@@ -112,12 +113,13 @@ class SIR:
                     elif indv.correction(sn=self_sn):
                         num_inf += 1
                         if indv.is_mixed:
-                            pop.infectMix(indv.infectMult(pc_2_trans))
+                            pop.infectMix(indv.infectMix(pc_2_trans))
                             num_mixes += 1
+                        elif not indv.doesContactTransmit(): num_failed_trans += 1
                     if num_inf >= rpt: break
                 num_loops += 1
                 if num_loops >= max_loops: break
-            rpt -= num_mixes
+            rpt -= (num_mixes + num_failed_trans)
         if rpt: pop.addPop(list(np.multiply(self.Es[idx], rpt)), self_sn, pc_2_trans)
     
     def newStrain(self, nsn='new'):
