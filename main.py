@@ -2,12 +2,13 @@ from sim_lib import *
 from allele import *
 from color import *
 import matplotlib.pyplot as plt
+import pandas as pd
 import time
 import os
 
 # Rates are in terms of '# events expected per day'
 VEC = {         # Parameters for transmission vector behavior (mosquito)
-    'bd': 0.3,  # Birth/death rate
+    'bd': 0.071,  # Birth/death rate
     'ir': 0.,   # Infection rate between individuals. Largely obsolete for a vector-based model
     'rr': 0,    # Recovery rate
     'wi': 0.,   # Waning immunity rate
@@ -15,42 +16,48 @@ VEC = {         # Parameters for transmission vector behavior (mosquito)
     'pn_full': 'Vector',    # Full population name, used in graph titles
     'is_vector': True,      # Whether or not the population is a disease vector
 }
+
+tau = 1800
+hst_base_transm_p = 0.11
+ct_rate = 0.28
+h_ir = ct_rate*hst_base_transm_p
+wi_rate = h_ir*np.exp(-h_ir*tau)/(1 - np.exp(-h_ir*tau))
+
 HST1 = {
     'bd': 0.,
     'ir': 0.,
-    'rr': .05,
-    'wi': .20,
+    'rr': 2.19e-3,
+    'wi': wi_rate,
     'pn': 'h1',
     'pn_full': 'Host 1',
 }
-BTP = 0.5
-ITR = 0.25 *(1/BTP)
 
+para_lifespan = 6.
 INDV_VEC = {
-    'pc': 120,
-    'mut_chance': 4e-3,
-    'para_lsp': 2.,
+    'pc': 100,
+    'para_lsp': para_lifespan,
     'is_hap': False,
     'do_mutation': False,
+    'pc_to_transmit': 10,
 }
 INDV_HST = {
-    'pc': int(1.2e6),
-    'mut_chance': 8e-6,
-    'para_lsp': 2.,
+    'pc': int(1e8),
+    'mut_chance': 2.94e-6,
+    'para_lsp': para_lifespan,
     'is_hap': True,
     'do_mutation': True,
+    'pc_to_transmit': 1000,
 }
 INDVS = [INDV_VEC, INDV_HST]
-for INDV in INDVS: INDV['pc_to_transmit'] = int(INDV['pc']/2)
 
 D = allele(char='D')
 
 mut_adv = 1.05
 wld_adv = 1/mut_adv
-D.sel_advs = {'h1': mut_adv, 'vec': 1.0}
-transm_p = 0.5
-D.transm_probs = {'h1': transm_p, 'vec': transm_p} # pop ID is the source -- e.g. 'h1' means 'prob of transmission from h1'
-D.base_transm_probs = {'h1': BTP, 'vec': BTP} # for wild-type allele
+D.sel_advs = {'h1': 1.0, 'vec': 1.0}
+# D.transm_probs = {'h1': 0.45, 'vec': 0.07} # pop ID is the source -- e.g. 'h1' means 'prob of transmission from h1'
+D.transm_probs = {'h1': hst_base_transm_p, 'vec': 0.021}
+D.base_transm_probs = {'h1': hst_base_transm_p, 'vec': 0.021} # for wild-type allele
 
 ALLELES = [D] # Do NOT have more than one allele here -- the simulation has been optimised for the single-locus case.
               # Adding more WILL break it!
@@ -59,7 +66,7 @@ PARAMS_1 = HST1
 PARAMS_2 = VEC
 
 def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=1200., nt: float=2., num_hist: int=0,
-        plot_res: bool=False, t_scale: float=100., weight_infs: bool=True, do_mix_start: bool=False,):
+        plot_res: bool=True, t_scale: float=1000., weight_infs: bool=True, do_mix_start: bool=False,):
     '''
     Run the simulation.
 
@@ -90,8 +97,8 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
     vectors = population(p0[1], **INDV_VEC)
     m1 = SIR(hosts_1, **PARAMS_1)
     m2 = SIR(vectors, **PARAMS_2)
-    m1.itr = {vectors: ITR}
-    m2.itr = {hosts_1: ITR}
+    m1.itr = {vectors: ct_rate}
+    m2.itr = {hosts_1: ct_rate}
     mdls = [m1, m2]
     t0 = time.time()
     ts, ps, times, pops, ps_unwgt, vpis, hpis, hists_v, hists_h, hist_tms = simShell(
@@ -140,17 +147,23 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
         # if weight_infs and mdls[i].pop.do_indvs: [plt.plot(ts, ps_unwgt_i[:,j], label=f'{ns[j]} (unweighted)', color=str2Color(gens[j]),
         #     alpha=pop2Alpha(ns[j])/4) for j in range(len(ns)) if (ns[j][0] != 'R') and (ns[j][0] != 'S')]
         ps_i = np.array([k[i] for k in ps])
-        [plt.plot(ts, ps_i[:,j], label=ns[j], color=str2Color(gens[j]), alpha=pop2Alpha(ns[j])) for j in range(len(ns))
-         if (ns[j][0] != 'R') and (ns[j][0] != 'S')]
+        csv_data = {'times': ts}
+        for j in range(len(ns)):
+            if (ns[j][0] != 'R') and (ns[j][0] != 'S'):
+                plt_data = ps_i[:,j]
+                csv_data[ns[j]] = list(plt_data)
+                plt.plot(ts, plt_data, label=ns[j], color=str2Color(gens[j]), alpha=pop2Alpha(ns[j]))
         net_i = vpis
         if mdls[i].pn == 'h1': net_i = hpis
         plt.plot(ts, net_i, label='I (total)')
         plt.plot(ts, 0*ts, alpha=0.)
-        plt.title(f'{mdls[i].pn_full} population')
+        plt.title(f'{mdls[i].pn_full} population (infected)')
         plt.legend()
         plt.xlabel('Simulation time')
         plt.ylabel('Population')
-        plt.savefig(f'{fn(mdls[i].pn)}.png')
+        file_nm = fn(mdls[i].pn)
+        plt.savefig(f'{file_nm}.png')
+        pd.DataFrame(csv_data).to_csv(f'{file_nm}.csv')
         if plot_res: plt.show()
         plt.close()
     

@@ -82,7 +82,7 @@ class SIR:
                     self.bds*S,     # susceptible births
                     self.bd*I_UW,   # infected births (as in births from infecteds, not newly-born infecteds)
                     self.bd*R,      # recovered births (again as in births from recovereds)
-                    ] + [self.itr[p2]*I_WS*(p2.sus+p2.getSusInfNum(self.sn))/(self.pop.tot_pop+p2.tot_pop) for p2 in self.itr]
+                    ] + [self.itr[p2]*I_WS*(p2.sus+p2.getSusInfNum(self.sn))/p2.tot_pop for p2 in self.itr]
                         # interspecific contacts (cross-pop infections)
         return self.Rs
 

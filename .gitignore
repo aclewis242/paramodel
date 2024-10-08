@@ -4,3 +4,4 @@ __pycache__
 *.txt
 old images
 hists*
+*.csv
