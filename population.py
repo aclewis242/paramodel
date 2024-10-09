@@ -1,5 +1,6 @@
 from func_lib import *
 from individual import *
+from random import shuffle, choice
 
 class population:
     '''
@@ -21,6 +22,7 @@ class population:
     times: list[float] = []
     gnts: list[str] = []
     num_gnts = 0
+    main_all_char: str = ''
 
     def __init__(self, p0: list[int], pn: str='', isn: str='init', **kwargs):
         '''
@@ -82,7 +84,7 @@ class population:
         - `sn`: The strain to add them to.
         - `pc_trans`: The number of parasites a mixed infection uses. Note that this is based on the *source,* not the destination!
         '''
-        tm = time.time()
+        tm = time()
         sn = self.match(sn)
         # old_data = self.printDatStr()
         # old_indvs_len = len(self.indvs)
@@ -109,17 +111,17 @@ class population:
                     print(f'strain {sn}')
                     self.printDat()
                     exit()
-        self.times[0] += time.time() - tm
-        tm = time.time()
+        self.times[0] += time() - tm
+        tm = time()
         S = int(p[0])
         I = int(p[1])
         R = int(p[2])
         sus_new = self.sus
         inf_new = self.inf.copy()
         rec_new = self.rec.copy()
-        self.times[1] += time.time() - tm
+        self.times[1] += time() - tm
 
-        tm = time.time()
+        tm = time()
         sus_new += S
         inf_new[sn] += I
         inf_indvs = []
@@ -129,67 +131,66 @@ class population:
         tba: list[individual] = []
         # mod_inds: list[individual] = []
         # pre_gnts: list[list[str]] = []
-        self.times[3] += time.time() - tm
+        self.times[3] += time() - tm
         if I > 0:
-            tm = time.time()
-            # print('argh')
+            tm = time()
             sus_indvs = self.getSusInf(sn)
             strain_indvs = {sn_i: self.getSusInf(sn_i, is_present=True, indvs_lst=sus_indvs) for sn_i in self.inf}
             sus_pop_nums = [self.sus] + [len(strain_indvs[sn_i]) if sn != sn_i else 0 for sn_i in self.inf]
-            sus_pop_wgts = normalise(np.array(sus_pop_nums)) # maybe don't do np?
-            self.times[2] += time.time() - tm
-            tm = time.time()
+            sus_pop_wgts = normalise(sus_pop_nums)
+            self.times[2] += time() - tm
+            tm = time()
             i_change, to_change = self.getChanges(I, sus_pop_wgts)
             tba = self.makeIndvs(sn, i_change)
-            self.times[4] += time.time() - tm
+            self.times[4] += time() - tm
             for strn in to_change:
-                tm = time.time()
+                tm = time()
                 sus_new += to_change[strn]
-                self.times[5] += time.time() - tm
-                tm = time.time()
+                self.times[5] += time() - tm
+                tm = time()
                 indvs_to_infect = strain_indvs[strn]
-                self.times[6] += time.time() - tm
-                tm = time.time()
-                random.shuffle(indvs_to_infect)
-                self.times[7] += time.time() - tm
+                self.times[6] += time() - tm
+                tm = time()
+                shuffle(indvs_to_infect)
+                self.times[7] += time() - tm
                 for ind in indvs_to_infect[:to_change[strn]]:
-                    tm = time.time()
+                    tm = time()
                     dead_gnts = ind.infectSelf(pc_trans, sn, do_return=True)
                     for d_g in dead_gnts: inf_new[d_g] -= 1
                     # mod_inds += [ind]
-                    self.times[8] += time.time() - tm
-            tm = time.time()
+                    self.times[8] += time() - tm
+            tm = time()
             self.indvs += tba
-            self.times[9] += time.time() - tm
+            self.times[9] += time() - tm
         elif I < 0:
             # self.refresh()
-            tm = time.time()
+            tm = time()
             # random.shuffle(self.indvs)
             inf_indvs = self.getSusInf(sn, is_present=True)
-            self.times[10] += time.time() - tm
-            tm = time.time()
-            random.shuffle(inf_indvs)
-            self.times[11] += time.time() - tm
+            self.times[10] += time() - tm
+            tm = time()
+            shuffle(inf_indvs)
+            self.times[11] += time() - tm
             for ind in inf_indvs[:-I]:
                 # if not R:
                 #     f = open('inf_events_raw.dat', 'a')
                 #     f.write(f'death {ind.genotype_freqs}\n')
                 #     f.close()
-                tm = time.time()
+                tm = time()
                 ind.marked_for_death = True
                 other_gts = list(set(ind.getGenotypes()) - set([sn]))
                 for gt in other_gts: inf_new[gt] -= 1
-                self.times[12] += time.time() - tm
-            tm = time.time()
+                self.times[12] += time() - tm
+            tm = time()
             self.refresh()
-            self.times[13] += time.time() - tm
-        tm = time.time()
+            self.times[13] += time() - tm
+        tm = time()
         rec_new[sn] += R
 
         self.sus = sus_new
         self.inf = inf_new
         self.rec = rec_new
-        self.times[14] += time.time() - tm
+        self.times[14] += time() - tm
         # self.refresh()
         # f = open('last_event.dat', 'w')
         # f.write(f'\n-----\nadded {p} with strain {sn}\nold data:\n')
@@ -224,7 +225,7 @@ class population:
         #     print(f'sus_indvs gnts: {[ind.getGenotypes() for ind in sus_indvs]}')
         #     exit()
     
-    def getChanges(self, pop_num: int, weights: np.ndarray[float]) -> tuple[int, dict[str, int]]:
+    def getChanges(self, pop_num: int, weights: list[float]) -> tuple[int, dict[str, int]]:
         '''
         Distributes infections between full-susceptibles and infected-susceptibles.
         '''
@@ -283,7 +284,7 @@ class population:
         for gt in mix:
             if mix[gt]: is_empty = False
         if is_empty: return
-        is_a_sus = random.random() < self.sus/(self.sus + len(self.indvs))
+        is_a_sus = random() < self.sus/(self.sus + len(self.indvs))
         if is_a_sus:
             new_indv = individual(gnts=self.gnts, **self.indv_params)
             new_indv.setToMix(mix)
@@ -293,7 +294,7 @@ class population:
             self.sus -= 1
         else:
             # random.shuffle(self.indvs)
-            indv_to_infect = random.choice(self.indvs)
+            indv_to_infect = choice(self.indvs)
             init_gts = indv_to_infect.getGenotypes()
             indv_to_infect.infectSelfMult(mix)
             fin_gts = indv_to_infect.getGenotypes()
@@ -313,17 +314,20 @@ class population:
             self.all_sel_bias[a.char] = a.sel_advs[self.pn]
             self.all_transm_probs[a.char] = a.transm_probs[self.pn]
             self.all_transm_probs[a.char.lower()] = a.base_transm_probs[self.pn]
+            self.main_all_char = a.char.upper()
         for ind in self.indvs:
             ind.all_sel_bias = self.all_sel_bias.copy()
             ind.all_transm_probs = self.all_transm_probs.copy()
+            ind.main_all_char = self.main_all_char
         self.indv_params['all_sel_bias'] = self.all_sel_bias
         self.indv_params['all_transm_probs'] = self.all_transm_probs
+        self.indv_params['main_all_char'] = self.main_all_char
 
     def getGntDist(self):
         '''
         Gets all the individuals' (capital/mutated) allele frequencies.
         '''
-        return [list(ind.getAlleleFreqs().values())[0]/ind.num_genes for ind in self.indvs]
+        return [ind.getAlleleFreqs()/ind.num_genes for ind in self.indvs]
 
     def refresh(self, update: bool=True):
         '''

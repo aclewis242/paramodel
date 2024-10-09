@@ -1,8 +1,8 @@
 from gen_funcs import *
 from func_lib import *
 from allele import *
-import random
-import time
+from time import time
+from random import choices, random
 
 class individual:
     '''
@@ -21,6 +21,7 @@ class individual:
     all_transm_probs: dict[str, float] = {}
     num_genes: int = 0
     pc_flt: float = 0.0
+    main_all_char: str = ''
 
     def __init__(self, gnts: list[str]=[], gnt: str='', rng: np.random.Generator=None, **kwargs):
         '''
@@ -65,49 +66,49 @@ class individual:
         Simulates genetic drift & selection. (`times` is for speed-recording purposes; refer to sim_lib for details.)
         '''
         if not self.is_mixed: return times
-        tm = time.time()
-        allele_freqs = self.getAlleleFreqs()
-        times[6] += time.time() - tm
-        for a in allele_freqs:
-            tm = time.time()
-            all_freq = allele_freqs[a]
-            times[7] += time.time() - tm
-            if not all_freq or all_freq == self.num_genes: continue
-            tm = time.time()
-            all_prop = all_freq/self.num_genes
-            asb = self.all_sel_bias[a]
-            w_avg = asb*all_prop + (1. - all_prop)
-            all_prop *= asb/w_avg
-            times[8] += time.time() - tm
-            tm = time.time()
-            if self.is_dip: all_prop = self.rng.binomial(self.num_genes, all_prop)/self.num_genes
-            times[9] += time.time() - tm
-            if not all_prop or all_prop == 1:
-                tm = time.time()
-                all_prop_bool = bool(all_prop) # note: consider conditioning on hap instead of using ploidy (speed?)
-                self.genotype_freqs[self.ploidy*a] = all_prop_bool*self.pc
-                self.genotype_freqs[self.ploidy*chr(ord(a)+32)] = (not all_prop_bool)*self.pc
-                if self.is_dip: self.genotype_freqs[a + chr(ord(a)+32)] = 0 # switches to lowercase faster than .lower() method
-                times[10] += time.time() - tm
-                continue
-            if self.is_hap:
-                tm = time.time()
-                gtfs_big = round(all_prop*self.pc_flt)
-                gtfs_sml = round((1-all_prop)*self.pc_flt)
-                if gtfs_big + gtfs_sml > self.pc: gtfs_sml = self.pc - gtfs_big
-                self.genotype_freqs[a] = gtfs_big
-                self.genotype_freqs[chr(ord(a)+32)] = gtfs_sml
-                times[11] += time.time() - tm
-            else:
-                tm = time.time()
-                probs = [(1-all_prop)**2, 2*all_prop*(1-all_prop), all_prop**2]
-                all_dist = self.rng.multinomial(n=self.pc, pvals=probs)
-                times[12] += time.time() - tm
-                tm = time.time()
-                self.genotype_freqs[2*chr(ord(a)+32)] = all_dist[0]
-                self.genotype_freqs[a + chr(ord(a)+32)] = all_dist[1]
-                self.genotype_freqs[2*a] = all_dist[2]
-                times[13] += time.time() - tm
+        tm = time()
+        all_freq = self.getAlleleFreqs()
+        times[6] += time() - tm
+        tm = time()
+        a = self.main_all_char
+        self.is_mixed
+        times[7] += time() - tm
+        if not all_freq or all_freq == self.num_genes: return times
+        tm = time()
+        all_prop = all_freq/self.num_genes
+        asb = self.all_sel_bias[a]
+        w_avg = asb*all_prop + (1. - all_prop)
+        all_prop *= asb/w_avg
+        times[8] += time() - tm
+        tm = time()
+        if self.is_dip: all_prop = self.rng.binomial(self.num_genes, all_prop)/self.num_genes
+        times[9] += time() - tm
+        if not all_prop or all_prop == 1:
+            tm = time()
+            all_prop_bool = bool(all_prop) # note: consider conditioning on hap instead of using ploidy (speed?)
+            self.genotype_freqs[self.ploidy*a] = all_prop_bool*self.pc
+            self.genotype_freqs[self.ploidy*chr(ord(a)+32)] = (not all_prop_bool)*self.pc
+            if self.is_dip: self.genotype_freqs[a + chr(ord(a)+32)] = 0 # switches to lowercase faster than .lower() method
+            times[10] += time() - tm
+            return times
+        if self.is_hap:
+            tm = time()
+            gtfs_big = round(all_prop*self.pc_flt)
+            gtfs_sml = round((1-all_prop)*self.pc_flt)
+            if gtfs_big + gtfs_sml > self.pc: gtfs_sml = self.pc - gtfs_big
+            self.genotype_freqs[a] = gtfs_big
+            self.genotype_freqs[chr(ord(a)+32)] = gtfs_sml
+            times[11] += time() - tm
+        else:
+            tm = time()
+            probs = [(1-all_prop)**2, 2*all_prop*(1-all_prop), all_prop**2]
+            all_dist = self.rng.multinomial(n=self.pc, pvals=probs)
+            times[12] += time() - tm
+            tm = time()
+            self.genotype_freqs[2*chr(ord(a)+32)] = all_dist[0]
+            self.genotype_freqs[a + chr(ord(a)+32)] = all_dist[1]
+            self.genotype_freqs[2*a] = all_dist[2]
+            times[13] += time() - tm
         return times
 
     def mutate(self, times: list):
@@ -115,40 +116,37 @@ class individual:
         Effects the mutations observed over a single generation.
         '''
         if self.is_dip: return times
-        tm = time.time()
+        tm = time()
         param_base = self.pc_flt*self.mut_chance
         pre_gtfs = self.genotype_freqs.copy()
-        times[14] += time.time() - tm
+        times[14] += time() - tm
         num_muts = 0
         for gt in self.genotype_freqs:
-            tm = time.time()
+            tm = time()
             mut_param = param_base*pre_gtfs[gt]/self.pc_flt
-            times[15] += time.time() - tm
+            times[15] += time() - tm
             if mut_param < 0.05: continue
-            tm = time.time()
+            tm = time()
             if mut_param > 25: num_muts = int(mut_param)
             else: num_muts = self.rng.poisson(mut_param)
             # num_muts = int(mut_param)
             # print(f'num_muts {num_muts}, param {mut_param}')
-            times[16] += time.time() - tm
+            times[16] += time() - tm
             if not num_muts: continue
-            tm = time.time()
+            tm = time()
             self.genotype_freqs[gt] -= num_muts
             self.genotype_freqs[gt.swapcase()] += num_muts
-            times[17] += time.time() - tm
+            times[17] += time() - tm
         return times
 
     def getAlleleFreqs(self):
         '''
         Gets the frequencies of each allele in the genotypes present in the individual's parasites. Used primarily in `genDrift`.
         '''
-        rv: dict[str, int] = {}
-        keys = list(self.genotype_freqs.keys())
-        # Note: assumes genotypes are ordered from more uppercase to less uppercase (D-d, DD-Dd-dd)!
-        keys_0 = keys[0]
-        if self.is_hap: rv[keys_0] = self.genotype_freqs[keys_0]
-        else: rv[keys_0[0]] = 2*self.genotype_freqs[keys_0] + self.genotype_freqs[keys[1]]
-        return rv
+        if self.is_hap: return self.genotype_freqs[self.main_all_char]
+        else:
+            mac = self.main_all_char
+            return 2*self.genotype_freqs[f'{mac}{mac}'] + self.genotype_freqs[f'{mac}{chr(ord(mac)+32)}']
 
     def getGenotypes(self):
         '''
@@ -179,7 +177,7 @@ class individual:
     def doesContactTransmit(self):
         gtf_wgt_sum = 0
         for gt in self.genotype_freqs: gtf_wgt_sum += self.all_transm_probs[gt[0]]*self.genotype_freqs[gt]/self.pc_flt
-        return random.random() < gtf_wgt_sum
+        return random() < gtf_wgt_sum
 
     def infectMix(self, pc_num: int=1, do_test_contact: bool=True):
         if do_test_contact:
@@ -192,7 +190,7 @@ class individual:
         '''
         if not gtfs: gtfs = self.genotype_freqs
         print('doing infect method (this shouldn\'t be happening anywhere, I think)')
-        return random.choices(list(gtfs.keys()), self.getGenotypeTransWeights_unwgt())[0]
+        return choices(list(gtfs.keys()), self.getGenotypeTransWeights_unwgt())[0]
     
     def infectSelf(self, pc_num: int, strn: str, do_return: bool=False) -> list[str]:
         '''
@@ -270,7 +268,7 @@ class individual:
         '''
         Returns either true or false with a probability of 1/(num. strains present) for no parameter, or the frequency of the given strain.
         '''
-        return random.random() < self.correction_det(sn)
+        return random() < self.correction_det(sn)
     
     def checkGtfs(self, loc: str=''):
         '''

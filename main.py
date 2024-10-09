@@ -3,7 +3,6 @@ from allele import *
 from color import *
 import matplotlib.pyplot as plt
 import pandas as pd
-import time
 import os
 
 # Rates are in terms of '# events expected per day'
@@ -67,7 +66,7 @@ PARAMS_1 = HST1
 PARAMS_2 = VEC
 
 def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=1200., nt: float=2., num_hist: int=0,
-        plot_res: bool=False, t_scale: float=100., weight_infs: bool=True, do_mix_start: bool=False,):
+        plot_res: bool=False, t_scale: float=1000., weight_infs: bool=True, do_mix_start: bool=False,):
     '''
     Run the simulation.
 
@@ -102,16 +101,16 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
     m1.itr = {vectors: ct_rate}
     m2.itr = {hosts_1: ct_rate}
     mdls = [m1, m2]
-    t0 = time.time()
+    t0 = time()
     ts, ps, times, pops, ps_unwgt, vpis, hpis, hists_v, hists_h, hist_tms = simShell(
         t_max, mdls, nt=nt, alleles=alleles, weight_infs=weight_infs, do_mix_start=do_mix_start, num_hist=num_hist)
-    ex_tm = time.time() - t0
+    ex_tm = time() - t0
     times_norm = normPercentList(times)
     print(f'\nExecution time: {roundNum(ex_tm, prec=3)}') # consider colored console output for readability
     print('Breakdown:')
     printFloatList(times_norm)
     print(f'Extra time: {ex_tm - sum(times)}')
-    print(f'Relative proportion spent in addPop: {roundNum(sum([sum(p.times) for p in pops])/sum(times))}')
+    print(f'Relative proportion of time spent in addPop: {roundNum(sum([sum(p.times) for p in pops])/sum(times))}')
     # for p in pops:
     #     print(f'{p.pn} time breakdown:')
     #     printFloatList(normPercentList(p.times))

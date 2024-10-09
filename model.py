@@ -1,7 +1,6 @@
 from func_lib import *
 from population import *
 from allele import *
-import random
 
 class SIR:
     '''

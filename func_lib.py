@@ -1,11 +1,15 @@
 import numpy as np
 import os
 
-def normalise(l: np.ndarray[float]):
+def normalise(l: list[float]):
     '''
     Normalises the given list such that its sum is 1.
     '''
-    return l/sum(l) # numpy is not fast. maybe use list comprehension instead?
+    l_sum = sum(l)
+    return [l_el/l_sum for l_el in l]
+
+def normalise_np(l: np.ndarray[float]):
+    return l/sum(l)
 
 def fn(f_n: str):
     '''
@@ -40,7 +44,7 @@ def normPercentList(l: list[float]) -> list[float]:
     '''
     Turns the given list into a normalised list of percentages.
     '''
-    return list(100*normalise(np.array(l)))
+    return list(100*normalise_np(np.array(l)))
 
 def printFloatList(l: list[float]):
     '''
