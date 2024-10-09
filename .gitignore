@@ -8,3 +8,4 @@ hists*
 *.tar
 *.tar.gz
 executable
+*.spec
