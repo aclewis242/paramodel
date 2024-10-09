@@ -64,6 +64,7 @@ class SIR:
         '''
         Generates the different transition rates based on the model's parameters and population.
         '''
+        # consider making this return the result instead of store it
         S = self.pop.sus
         R = self.pop.rec[self.sn]
         I_UW = 0
@@ -84,7 +85,7 @@ class SIR:
                     self.bd*R,      # recovered births (again as in births from recovereds)
                     ] + [self.itr[p2]*I_WS*(p2.sus+p2.getSusInfNum(self.sn))/p2.tot_pop for p2 in self.itr]
                         # interspecific contacts (cross-pop infections)
-        return self.Rs
+        # return self.Rs
 
     def trans(self, idx: int, rpt: int=1):
         '''

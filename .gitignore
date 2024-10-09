@@ -5,3 +5,6 @@ __pycache__
 old images
 hists*
 *.csv
+*.tar
+*.tar.gz
+executable

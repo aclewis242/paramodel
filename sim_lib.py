@@ -164,11 +164,11 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
             random.shuffle(p.individuals)
             times[4] += time.time() - tm
             for indv in p.individuals:
-                tm = time.time()
-                if sum(indv.genotype_freqs.values()) != indv.pc:
-                    print(f'indv with {indv.pc} parasites has gtfs {indv.genotype_freqs} (sum {sum(indv.genotype_freqs.values())})')
-                    exit()
-                times[4] += time.time() - tm
+                # tm = time.time()
+                # if sum(indv.genotype_freqs.values()) != indv.pc:
+                #     print(f'indv with {indv.pc} parasites has gtfs {indv.genotype_freqs} (sum {sum(indv.genotype_freqs.values())})')
+                #     exit()
+                # times[4] += time.time() - tm
                 if not indv.marked_for_death:
                     tm = time.time()
                     init_gts = indv.getGenotypes()

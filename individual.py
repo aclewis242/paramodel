@@ -119,13 +119,16 @@ class individual:
         param_base = self.pc_flt*self.mut_chance
         pre_gtfs = self.genotype_freqs.copy()
         times[14] += time.time() - tm
+        num_muts = 0
         for gt in self.genotype_freqs:
             tm = time.time()
             mut_param = param_base*pre_gtfs[gt]/self.pc_flt
             times[15] += time.time() - tm
             if mut_param < 0.05: continue
             tm = time.time()
-            num_muts = self.rng.poisson(mut_param)
+            if mut_param > 25: num_muts = int(mut_param)
+            else: num_muts = self.rng.poisson(mut_param)
+            # num_muts = int(mut_param)
             # print(f'num_muts {num_muts}, param {mut_param}')
             times[16] += time.time() - tm
             if not num_muts: continue

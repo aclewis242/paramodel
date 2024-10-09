@@ -56,8 +56,9 @@ mut_adv = 1.05
 wld_adv = 1/mut_adv
 D.sel_advs = {'h1': 1.0, 'vec': 1.0}
 # D.transm_probs = {'h1': 0.45, 'vec': 0.07} # pop ID is the source -- e.g. 'h1' means 'prob of transmission from h1'
-D.transm_probs = {'h1': hst_base_transm_p, 'vec': 0.021}
 D.base_transm_probs = {'h1': hst_base_transm_p, 'vec': 0.021} # for wild-type allele
+# D.transm_probs = D.base_transm_probs.copy()
+D.transm_probs = {'h1': hst_base_transm_p, 'vec': 0.07}
 
 ALLELES = [D] # Do NOT have more than one allele here -- the simulation has been optimised for the single-locus case.
               # Adding more WILL break it!
@@ -66,7 +67,7 @@ PARAMS_1 = HST1
 PARAMS_2 = VEC
 
 def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=1200., nt: float=2., num_hist: int=0,
-        plot_res: bool=True, t_scale: float=1000., weight_infs: bool=True, do_mix_start: bool=False,):
+        plot_res: bool=False, t_scale: float=100., weight_infs: bool=True, do_mix_start: bool=False,):
     '''
     Run the simulation.
 
@@ -81,7 +82,8 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
         genotype frequencies).
     - `do_mix_start`: Whether or not to have a mixed distribution of infected individuals (wild & mutated) or uniform (just wild).
     '''
-    [os.remove(file) for file in os.listdir() if file.endswith('.dat')]
+    exts_to_rm = ['dat', 'csv']
+    [[os.remove(file) for file in os.listdir() if file.endswith(f'.{ext}')] for ext in exts_to_rm]
     mkDir('hists', 'old images')
     mkFile('inf_events_raw.dat', 'last_event.dat',)
     alleles = ALLELES
@@ -109,6 +111,7 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
     print('Breakdown:')
     printFloatList(times_norm)
     print(f'Extra time: {ex_tm - sum(times)}')
+    print(f'Relative proportion spent in addPop: {roundNum(sum([p.times for p in pops])/sum(times))}')
     # for p in pops:
     #     print(f'{p.pn} time breakdown:')
     #     printFloatList(normPercentList(p.times))
