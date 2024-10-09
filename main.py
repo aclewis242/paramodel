@@ -111,7 +111,7 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
     print('Breakdown:')
     printFloatList(times_norm)
     print(f'Extra time: {ex_tm - sum(times)}')
-    print(f'Relative proportion spent in addPop: {roundNum(sum([p.times for p in pops])/sum(times))}')
+    print(f'Relative proportion spent in addPop: {roundNum(sum([sum(p.times) for p in pops])/sum(times))}')
     # for p in pops:
     #     print(f'{p.pn} time breakdown:')
     #     printFloatList(normPercentList(p.times))
