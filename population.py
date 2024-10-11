@@ -19,7 +19,6 @@ class population:
     all_sel_bias: dict[str, float] = {}
     all_transm_probs: dict[str, float] = {}
     init_pop = 0
-    times: list[float] = []
     gnts: list[str] = []
     num_gnts = 0
     main_all_char: str = ''
@@ -49,7 +48,6 @@ class population:
         self.indv_params['pc_flt'] = float(self.indv_params['pc'])
         self.all_sel_bias: dict[str, float] = {}
         self.all_transm_probs: dict[str, float] = {}
-        self.times: list[float] = [0 for i in range(15)]
         self.gnts: list[str] = []
     
     def getPop(self, sn: str='init') -> list[int]:
@@ -84,7 +82,6 @@ class population:
         - `sn`: The strain to add them to.
         - `pc_trans`: The number of parasites a mixed infection uses. Note that this is based on the *source,* not the destination!
         '''
-        tm = time()
         sn = self.match(sn)
         # old_data = self.printDatStr()
         # old_indvs_len = len(self.indvs)
@@ -111,17 +108,13 @@ class population:
                     print(f'strain {sn}')
                     self.printDat()
                     exit()
-        self.times[0] += time() - tm
-        tm = time()
         S = int(p[0])
         I = int(p[1])
         R = int(p[2])
         sus_new = self.sus
         inf_new = self.inf.copy()
         rec_new = self.rec.copy()
-        self.times[1] += time() - tm
 
-        tm = time()
         sus_new += S
         inf_new[sn] += I
         inf_indvs = []
@@ -131,66 +124,44 @@ class population:
         tba: list[individual] = []
         # mod_inds: list[individual] = []
         # pre_gnts: list[list[str]] = []
-        self.times[3] += time() - tm
         if I > 0:
-            tm = time()
             sus_indvs = self.getSusInf(sn)
             strain_indvs = {sn_i: self.getSusInf(sn_i, is_present=True, indvs_lst=sus_indvs) for sn_i in self.inf}
             sus_pop_nums = [self.sus] + [len(strain_indvs[sn_i]) if sn != sn_i else 0 for sn_i in self.inf]
             sus_pop_wgts = normalise(sus_pop_nums)
-            self.times[2] += time() - tm
-            tm = time()
             i_change, to_change = self.getChanges(I, sus_pop_wgts)
             tba = self.makeIndvs(sn, i_change)
-            self.times[4] += time() - tm
             for strn in to_change:
-                tm = time()
                 sus_new += to_change[strn]
-                self.times[5] += time() - tm
-                tm = time()
                 indvs_to_infect = strain_indvs[strn]
-                self.times[6] += time() - tm
-                tm = time()
-                shuffle(indvs_to_infect)
-                self.times[7] += time() - tm
-                for ind in indvs_to_infect[:to_change[strn]]:
-                    tm = time()
-                    dead_gnts = ind.infectSelf(pc_trans, sn, do_return=True)
-                    for d_g in dead_gnts: inf_new[d_g] -= 1
+                # shuffle(indvs_to_infect)
+                for ind in indvs_to_infect[:to_change[strn]]: ind.infectSelf(pc_trans, sn)
+                    # dead_gnts = ind.infectSelf(pc_trans, sn, do_return=True)
+                    # for d_g in dead_gnts: inf_new[d_g] -= 1
                     # mod_inds += [ind]
-                    self.times[8] += time() - tm
-            tm = time()
             self.indvs += tba
-            self.times[9] += time() - tm
         elif I < 0:
             # self.refresh()
-            tm = time()
             # random.shuffle(self.indvs)
             inf_indvs = self.getSusInf(sn, is_present=True)
-            self.times[10] += time() - tm
-            tm = time()
-            shuffle(inf_indvs)
-            self.times[11] += time() - tm
+            # shuffle(inf_indvs)
             for ind in inf_indvs[:-I]:
                 # if not R:
                 #     f = open('inf_events_raw.dat', 'a')
                 #     f.write(f'death {ind.genotype_freqs}\n')
                 #     f.close()
-                tm = time()
                 ind.marked_for_death = True
-                other_gts = list(set(ind.getGenotypes()) - set([sn]))
-                for gt in other_gts: inf_new[gt] -= 1
-                self.times[12] += time() - tm
-            tm = time()
+                # other_gts = list(set(ind.getGenotypes()) - set([sn]))
+                # for gt in other_gts: inf_new[gt] -= 1
+                for gt in ind.genotype_freqs:
+                    if ind.genotype_freqs[gt]:
+                        if gt != sn: inf_new[gt] -= 1
             self.refresh()
-            self.times[13] += time() - tm
-        tm = time()
         rec_new[sn] += R
 
         self.sus = sus_new
         self.inf = inf_new
         self.rec = rec_new
-        self.times[14] += time() - tm
         # self.refresh()
         # f = open('last_event.dat', 'w')
         # f.write(f'\n-----\nadded {p} with strain {sn}\nold data:\n')
@@ -292,12 +263,17 @@ class population:
             for gnt in new_indv.genotype_freqs:
                 if new_indv.genotype_freqs[gnt]: self.inf[gnt] += 1
             self.sus -= 1
-        else:
+        else: # choice(self.indvs).infectSelfMult(mix)
             # random.shuffle(self.indvs)
             indv_to_infect = choice(self.indvs)
-            init_gts = indv_to_infect.getGenotypes()
+            init_gts: list[str] = []
+            init_is_full = indv_to_infect.num_gnts_present-1 == indv_to_infect.ploidy
+            if not init_is_full: init_gts = indv_to_infect.getGenotypes()
             indv_to_infect.infectSelfMult(mix)
-            fin_gts = indv_to_infect.getGenotypes()
+            fin_is_full = indv_to_infect.num_gnts_present-1 == indv_to_infect.ploidy
+            if init_is_full and fin_is_full: return
+            fin_gts: list[str] = []
+            if not fin_is_full: fin_gts = indv_to_infect.getGenotypes()
             if fin_gts != init_gts: # can likely be made meaningfully faster
                 gts_rmv = list(set(init_gts) - set(fin_gts))
                 gts_add = list(set(fin_gts) - set(init_gts))
@@ -335,12 +311,14 @@ class population:
         it aligns with the microscopic state of the simulation.
         '''
         self.indvs = [ind for ind in self.indvs if not ind.marked_for_death] # consider trying to fold the two for loops here together
-        if update:
-            self.inf = dict.fromkeys(self.inf, 0)
-            for ind in self.indvs:
-                gtfs = ind.genotype_freqs
-                for gt in gtfs:
-                    if gtfs[gt]: self.inf[gt] += 1
+        if update: self.update()
+    
+    def update(self):
+        self.inf = dict.fromkeys(self.inf, 0)
+        for ind in self.indvs:
+            gtfs = ind.genotype_freqs
+            for gt in gtfs:
+                if gtfs[gt]: self.inf[gt] += 1
         
     def printDatStr(self):
         '''

@@ -24,6 +24,7 @@ class SIR:
     Es = []
     num_Es = -1
     is_vector = False
+    other_pop: population = None
     
     def __init__(self, p0: population, **kwargs):
         '''
@@ -57,7 +58,7 @@ class SIR:
         self.Es = [E1, E2, E3, E4, E5, E6, E7, E1, E1, E1] # first E1, E2 are deprecated
         self.num_Es = len(self.Es)
         self.itr_keys = list(self.itr.keys())
-        self.setRs()
+        # self.setRs()
 
     def setRs(self):
         '''
@@ -66,12 +67,15 @@ class SIR:
         # consider making this return the result instead of store it
         S = self.pop.sus
         R = self.pop.rec[self.sn]
+        is_hap = self.pop.is_hap
+        p2 = self.other_pop
         I_UW = 0
         I_WS = 0
         for ind in self.pop.individuals:
             if ind.genotype_freqs[self.sn]:
-                I_UW += ind.correction_det()            # unweighted infections (simple 'yes/no' on strain presence)
                 I_WS += ind.correction_det(sn=self.sn)  # weighted according to how prevalent the strain is inside the indv
+                if is_hap: continue
+                I_UW += ind.correction_det()            # unweighted infections (simple 'yes/no' on strain presence)
         self.Rs = [ 0,              # deprecated (formerly births)
                     0,              # deprecated (formerly intra-population infections)
                     self.rr*I_WS,   # recoveries
@@ -82,7 +86,8 @@ class SIR:
                     self.bds*S,     # susceptible births
                     self.bd*I_UW,   # infected births (as in births from infecteds, not newly-born infecteds)
                     self.bd*R,      # recovered births (again as in births from recovereds)
-                    ] + [self.itr[p2]*I_WS*(p2.sus+p2.getSusInfNum(self.sn))/p2.tot_pop for p2 in self.itr]
+                    self.itr[p2]*I_WS*(p2.sus+p2.getSusInfNum(self.sn))/p2.tot_pop]
+                    # ] + [self.itr[p2]*I_WS*(p2.sus+p2.getSusInfNum(self.sn))/p2.tot_pop for p2 in self.itr]
                         # interspecific contacts (cross-pop infections)
         # return self.Rs
 

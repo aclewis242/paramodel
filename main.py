@@ -4,6 +4,8 @@ from color import *
 import matplotlib.pyplot as plt
 import pandas as pd
 import os
+import cProfile
+import pstats
 
 # Rates are in terms of '# events expected per day'
 VEC = {         # Parameters for transmission vector behavior (mosquito)
@@ -31,7 +33,7 @@ HST1 = {
     'pn_full': 'Host 1',
 }
 
-para_lifespan = 6.
+para_lifespan = 8.
 INDV_VEC = {
     'pc': 100,
     'para_lsp': para_lifespan,
@@ -53,11 +55,11 @@ D = allele(char='D')
 
 mut_adv = 1.05
 wld_adv = 1/mut_adv
-D.sel_advs = {'h1': 1.0, 'vec': 1.0}
+D.sel_advs = {'h1': 1.2, 'vec': 1.0}
 # D.transm_probs = {'h1': 0.45, 'vec': 0.07} # pop ID is the source -- e.g. 'h1' means 'prob of transmission from h1'
 D.base_transm_probs = {'h1': hst_base_transm_p, 'vec': 0.021} # for wild-type allele
-# D.transm_probs = D.base_transm_probs.copy()
-D.transm_probs = {'h1': hst_base_transm_p, 'vec': 0.07}
+D.transm_probs = D.base_transm_probs.copy()
+# D.transm_probs = {'h1': hst_base_transm_p, 'vec': 0.07}
 
 ALLELES = [D] # Do NOT have more than one allele here -- the simulation has been optimised for the single-locus case.
               # Adding more WILL break it!
@@ -65,8 +67,8 @@ ALLELES = [D] # Do NOT have more than one allele here -- the simulation has been
 PARAMS_1 = HST1
 PARAMS_2 = VEC
 
-def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=1200., nt: float=2., num_hist: int=0,
-        plot_res: bool=False, t_scale: float=1000., weight_infs: bool=True, do_mix_start: bool=False,):
+def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=1200., nt: float=1., num_hist: int=0,
+        plot_res: bool=False, t_scale: float=500., weight_infs: bool=True, do_mix_start: bool=False,):
     '''
     Run the simulation.
 
@@ -81,7 +83,7 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
         genotype frequencies).
     - `do_mix_start`: Whether or not to have a mixed distribution of infected individuals (wild & mutated) or uniform (just wild).
     '''
-    exts_to_rm = ['dat', 'csv']
+    exts_to_rm = ['dat', 'csv', 'txt']
     [[os.remove(file) for file in os.listdir() if file.endswith(f'.{ext}')] for ext in exts_to_rm]
     mkDir('hists', 'old images')
     mkFile('inf_events_raw.dat', 'last_event.dat',)
@@ -99,18 +101,20 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
     m1 = SIR(hosts_1, **PARAMS_1)
     m2 = SIR(vectors, **PARAMS_2)
     m1.itr = {vectors: ct_rate}
+    m1.other_pop = vectors
     m2.itr = {hosts_1: ct_rate}
+    m2.other_pop = hosts_1
     mdls = [m1, m2]
     t0 = time()
     ts, ps, times, pops, ps_unwgt, vpis, hpis, hists_v, hists_h, hist_tms = simShell(
         t_max, mdls, nt=nt, alleles=alleles, weight_infs=weight_infs, do_mix_start=do_mix_start, num_hist=num_hist)
     ex_tm = time() - t0
-    times_norm = normPercentList(times)
+    # times_norm = normPercentList(times)
     print(f'\nExecution time: {roundNum(ex_tm, prec=3)}') # consider colored console output for readability
-    print('Breakdown:')
-    printFloatList(times_norm)
-    print(f'Extra time: {ex_tm - sum(times)}')
-    print(f'Relative proportion of time spent in addPop: {roundNum(sum([sum(p.times) for p in pops])/sum(times))}')
+    # print('Breakdown:')
+    # printFloatList(times_norm)
+    # print(f'Extra time: {ex_tm - sum(times)}')
+    # print(f'Relative proportion of time spent in addPop: {roundNum(sum([sum(p.times) for p in pops])/sum(times))}')
     # for p in pops:
     #     print(f'{p.pn} time breakdown:')
     #     printFloatList(normPercentList(p.times))
@@ -184,5 +188,16 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
             plt.savefig(f'hists/{hpn}_{i}.png')
             plt.close()
 
+def doTimeBreakdown():
+    time_output_fn = 'time_breakdown.dat'
+    cProfile.run('run()', time_output_fn)
+    time_output_txt = 'time_breakdown.txt'
+    time_output_file = open(time_output_txt, 'x')
+    p_stats = pstats.Stats(time_output_fn, stream=time_output_file)
+    p_stats.strip_dirs()
+    p_stats.sort_stats('cumtime')
+    p_stats.print_stats()
+
 if __name__ == '__main__':
-    run()
+    # run()
+    doTimeBreakdown()

@@ -29,7 +29,7 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
     - `hists_h`: Histogram data for hosts.
     - `hist_tms`: The times at which histogram data were taken.
     '''
-    tm = time()
+    # tm = time()
     times = [0 for i in range(21)]
     dt = tmax/(nt - 1)
     nt = int(nt)
@@ -135,60 +135,62 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
     hists_h = []
     hists_v = []
     hist_tms = []
-    times[0] += time() - tm
+    # times[0] += time() - tm
     for i in ts_i:
-        tm = time()
+        # tm = time()
         for j in range(num_mdls):
             mdls[j].setRs()
             for k in range(num_Rs):
                 all_Rs[j*num_Rs+k] = mdls[j].Rs[k]
         sum_Rs = sum(all_Rs)
-        times[1] += time() - tm
-        tm = time()
+        # times[1] += time() - tm
+        # tm = time()
         Xs = adaptSim(all_Rs/sum_Rs, sum_Rs, dt)
-        times[3] += time() - tm
-        tm = time()
+        # times[3] += time() - tm
+        # tm = time()
         for i_m in range(num_mdls):
             for i_r in range(num_Rs):
                 rpt = Xs[i_m*num_Rs+i_r]
                 if rpt: mdls[i_m].trans(i_r, rpt)
-        times[2] += time() - tm
-        tm = time()
+        # times[2] += time() - tm
+        # tm = time()
         for i_p in range(num_pops):
             ps[i][i_p] = pops[i_p].getAllPop(weight=weight_infs)
             ps_unwgt[i][i_p] = pops[i_p].getAllPop()
-        times[3] += time() - tm
+        # times[3] += time() - tm
         for p in pops:
-            tm = time()
-            alive: list[individual] = []
-            shuffle(p.individuals)
-            times[4] += time() - tm
-            for indv in p.individuals:
-                # tm = time()
+            # tm = time()
+            # alive: list[individual] = []
+            # shuffle(p.individuals)
+            # times[4] += time() - tm
+            for indv in p.individuals: indv.simPara()
+                # # tm = time()
                 # if sum(indv.genotype_freqs.values()) != indv.pc:
                 #     print(f'indv with {indv.pc} parasites has gtfs {indv.genotype_freqs} (sum {sum(indv.genotype_freqs.values())})')
                 #     exit()
-                # times[4] += time() - tm
-                if not indv.marked_for_death:
-                    tm = time()
-                    init_gts = indv.getGenotypes()
-                    times[5] += time() - tm
-                    times = indv.simPara(times)
-                    tm = time()
-                    fin_gts = indv.getGenotypes()
-                    times[5] += time() - tm
-                    tm = time()
-                    if fin_gts != init_gts:
-                        gts_rmv = list(set(init_gts) - set(fin_gts))
-                        gts_add = list(set(fin_gts) - set(init_gts))
-                        for gt in gts_rmv: p.inf[gt] -= 1
-                        for gt in gts_add: p.inf[gt] += 1
-                        for strn in p.inf:
-                            if p.inf[strn] < 0: print('concern')
-                    alive += [indv]
-                    times[18] += time() - tm
-            p.individuals = alive
-        tm = time()
+                # # times[4] += time() - tm
+                # if not indv.marked_for_death:
+                    # tm = time()
+                    # init_gts = indv.getGenotypes()
+                    # times[5] += time() - tm
+                    # indv.simPara()
+                    # tm = time()
+                    # fin_gts = indv.getGenotypes()
+                    # times[5] += time() - tm
+                    # tm = time()
+                    # if fin_gts != init_gts:
+                    #     # print(f'thing actually happening. init gts {init_gts}, fin gts {fin_gts}')
+                    #     gts_rmv = list(set(init_gts) - set(fin_gts))
+                    #     gts_add = list(set(fin_gts) - set(init_gts))
+                    #     for gt in gts_rmv: p.inf[gt] -= 1
+                    #     for gt in gts_add: p.inf[gt] += 1
+                    #     for strn in p.inf:
+                    #         if p.inf[strn] < 0: print('concern')
+                    # alive += [indv]
+                    # times[18] += time() - tm
+            p.update()
+            # p.individuals = alive
+        # tm = time()
         vpi = len(vec_pop.individuals)
         hpi = len(host_pop.individuals)
         vpis += [vpi]
@@ -202,12 +204,12 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
             hists_h += [host_pop.getGntDist()]
             hists_v += [vec_pop.getGntDist()]
             hist_tms += [i*dt]
-        times[19] += time() - tm
-    tm = time()
+        # times[19] += time() - tm
+    # tm = time()
     hists_h += [host_pop.getGntDist()]
     hists_v += [vec_pop.getGntDist()]
     hist_tms += [ts_i[-1]*dt]
-    times[20] += time() - tm
+    # times[20] += time() - tm
     return ts_i*dt, ps, times, pops, ps_unwgt, vpis, hpis, hists_v, hists_h, hist_tms
 
 def adaptSim(ps: np.ndarray[float], sum_Rs: float, dt: float):
