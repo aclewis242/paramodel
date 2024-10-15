@@ -6,6 +6,7 @@ def normalise(l: list[float]):
     Normalises the given list such that its sum is 1.
     '''
     l_sum = sum(l)
+    if not l_sum: return l
     return [l_el/l_sum for l_el in l]
 
 def normalise_np(l: np.ndarray[float]):
@@ -17,7 +18,7 @@ def fn(f_n: str):
     '''
     return f_n.lower().replace(' ', '_')
 
-def float2SN(f: float, p: int=2):
+def float2SN(f: float, p: int=2, do_sci: bool=False):
     '''
     Converts the given number to scientific notation with the given precision.
 
@@ -25,7 +26,7 @@ def float2SN(f: float, p: int=2):
     - `f`: The number in question.
     - `p`: The number (int) of digits of precision (past the decimal point). For example: f=1302, p=2 -> 1.30e3.
     '''
-    if f < 10**(p+1): return f'{f}'
+    if ((f < 10**(p+1) and f > 10**(-p)) or not f) and not do_sci: return f'{f}'
     else:
         pwr = np.floor(np.log10(f))
         return f'{int(f/(10**(pwr-p)))/(10**p)}e{int(pwr)}'
@@ -39,6 +40,10 @@ def roundNum(f: float, prec: int=2) -> float:
     - `prec`: The number of decimal points to round it to.
     '''
     return round(f*(10**prec))/(10**prec)
+
+def roundAndSN(f: float, u_lim: int=4, l_lim: int=2, prec: int=3):
+    if (f < 10**u_lim and f > 10**(-l_lim+1)) or not f: return f'{roundNum(f, prec=prec)}'
+    else: return float2SN(f, p=prec, do_sci=True)
 
 def normPercentList(l: list[float]) -> list[float]:
     '''

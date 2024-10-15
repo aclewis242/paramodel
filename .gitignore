@@ -9,3 +9,4 @@ hists*
 *.tar.gz
 executable
 *.spec
+*.opt

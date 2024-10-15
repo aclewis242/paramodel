@@ -61,6 +61,7 @@ class individual:
         for i in range(self.para_gens):
             if self.do_mutation: self.mutate()
             self.genDrift()
+        # self.checkGtfs('simPara')
         # return times
     
     def genDrift(self):
@@ -206,7 +207,10 @@ class individual:
         strn_match = self.match(strn)
         for stn in to_replace:
             self.genotype_freqs[stn] -= to_replace[stn]
+            if self.genotype_freqs[stn] < 0: to_replace[stn] += self.genotype_freqs[stn]; self.genotype_freqs[stn] = 0
             self.genotype_freqs[strn_match] += to_replace[stn]
+        # for gt in self.genotype_freqs:
+        #     if self.genotype_freqs[gt] < 0: print(f'argh (infself). gtfs {self.genotype_freqs}')
     
     def infectSelfMult(self, mix: dict[str, int]):
         '''

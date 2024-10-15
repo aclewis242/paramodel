@@ -4,7 +4,7 @@ from time import time
 import numpy as np
 
 def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=[], weight_infs: bool=False, do_mix_start: bool=False,
-             num_hist: int=5):
+             num_hist: int=5, do_freqs: bool=True):
     '''
     Manages the time iterations of the simulation.
 
@@ -155,41 +155,12 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
         # times[2] += time() - tm
         # tm = time()
         for i_p in range(num_pops):
-            ps[i][i_p] = pops[i_p].getAllPop(weight=weight_infs)
-            ps_unwgt[i][i_p] = pops[i_p].getAllPop()
+            ps[i][i_p] = pops[i_p].getAllPop(weight=weight_infs, frqs=do_freqs)
+            # ps_unwgt[i][i_p] = pops[i_p].getAllPop()
         # times[3] += time() - tm
         for p in pops:
-            # tm = time()
-            # alive: list[individual] = []
-            # shuffle(p.individuals)
-            # times[4] += time() - tm
             for indv in p.individuals: indv.simPara()
-                # # tm = time()
-                # if sum(indv.genotype_freqs.values()) != indv.pc:
-                #     print(f'indv with {indv.pc} parasites has gtfs {indv.genotype_freqs} (sum {sum(indv.genotype_freqs.values())})')
-                #     exit()
-                # # times[4] += time() - tm
-                # if not indv.marked_for_death:
-                    # tm = time()
-                    # init_gts = indv.getGenotypes()
-                    # times[5] += time() - tm
-                    # indv.simPara()
-                    # tm = time()
-                    # fin_gts = indv.getGenotypes()
-                    # times[5] += time() - tm
-                    # tm = time()
-                    # if fin_gts != init_gts:
-                    #     # print(f'thing actually happening. init gts {init_gts}, fin gts {fin_gts}')
-                    #     gts_rmv = list(set(init_gts) - set(fin_gts))
-                    #     gts_add = list(set(fin_gts) - set(init_gts))
-                    #     for gt in gts_rmv: p.inf[gt] -= 1
-                    #     for gt in gts_add: p.inf[gt] += 1
-                    #     for strn in p.inf:
-                    #         if p.inf[strn] < 0: print('concern')
-                    # alive += [indv]
-                    # times[18] += time() - tm
             p.update()
-            # p.individuals = alive
         # tm = time()
         vpi = len(vec_pop.individuals)
         hpi = len(host_pop.individuals)

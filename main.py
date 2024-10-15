@@ -18,7 +18,7 @@ VEC = {         # Parameters for transmission vector behavior (mosquito)
     'is_vector': True,      # Whether or not the population is a disease vector
 }
 
-tau = 1800
+tau = 90
 hst_base_transm_p = 0.11
 ct_rate = 0.28
 h_ir = ct_rate*hst_base_transm_p
@@ -30,16 +30,16 @@ HST1 = {
     'rr': 2.19e-3,
     'wi': wi_rate,
     'pn': 'h1',
-    'pn_full': 'Host 1',
+    'pn_full': 'Host',
 }
 
 para_lifespan = 8.
 INDV_VEC = {
-    'pc': 100,
+    'pc': 20,
     'para_lsp': para_lifespan,
     'is_hap': False,
     'do_mutation': False,
-    'pc_to_transmit': 10,
+    'pc_to_transmit': 15,
 }
 INDV_HST = {
     'pc': int(1e8),
@@ -47,7 +47,7 @@ INDV_HST = {
     'para_lsp': para_lifespan,
     'is_hap': True,
     'do_mutation': True,
-    'pc_to_transmit': 1000,
+    'pc_to_transmit': 10,
 }
 INDVS = [INDV_VEC, INDV_HST]
 
@@ -55,7 +55,7 @@ D = allele(char='D')
 
 mut_adv = 1.05
 wld_adv = 1/mut_adv
-D.sel_advs = {'h1': 1.2, 'vec': 1.0}
+D.sel_advs = {'h1': mut_adv, 'vec': 1.0}
 # D.transm_probs = {'h1': 0.45, 'vec': 0.07} # pop ID is the source -- e.g. 'h1' means 'prob of transmission from h1'
 D.base_transm_probs = {'h1': hst_base_transm_p, 'vec': 0.021} # for wild-type allele
 D.transm_probs = D.base_transm_probs.copy()
@@ -68,7 +68,7 @@ PARAMS_1 = HST1
 PARAMS_2 = VEC
 
 def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=1200., nt: float=1., num_hist: int=0,
-        plot_res: bool=False, t_scale: float=1000., weight_infs: bool=True, do_mix_start: bool=False,):
+        plot_res: bool=True, t_scale: float=5000., weight_infs: bool=True, do_mix_start: bool=False, do_freqs: bool=True):
     '''
     Run the simulation.
 
@@ -107,7 +107,7 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
     mdls = [m1, m2]
     t0 = time()
     ts, ps, times, pops, ps_unwgt, vpis, hpis, hists_v, hists_h, hist_tms = simShell(
-        t_max, mdls, nt=nt, alleles=alleles, weight_infs=weight_infs, do_mix_start=do_mix_start, num_hist=num_hist)
+        t_max, mdls, nt=nt, alleles=alleles, weight_infs=weight_infs, do_mix_start=do_mix_start, num_hist=num_hist, do_freqs=do_freqs)
     ex_tm = time() - t0
     # times_norm = normPercentList(times)
     print(f'\nExecution time: {roundNum(ex_tm, prec=3)}') # consider colored console output for readability
@@ -143,8 +143,13 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
         else:
             print(f'{tab}{type(lst).__name__}')
             return
+    output_fn = 'net_output.opt'
+    if output_fn in os.listdir(): os.remove(output_fn)
+    f = open(output_fn, 'x')
+    frac_to_take = 0.2
     for i in range(len(mdls)):
         ns = [''.join(n.split('.')) for n in pops[i].getAllPopNms()]
+        f.write(f'\t{mdls[i].pn_full}:\n')
         gens = []
         for n in ns:
             if '(' in n and ')' in n: gens += [n[n.index('(')+1:n.index(')')]]
@@ -154,13 +159,25 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
         #     alpha=pop2Alpha(ns[j])/4) for j in range(len(ns)) if (ns[j][0] != 'R') and (ns[j][0] != 'S')]
         ps_i = np.array([k[i] for k in ps])
         csv_data = {'times': ts}
+        plt_datas = []
+        stplt_labels = []
+        stplt_colors = []
         for j in range(len(ns)):
             if (ns[j][0] != 'R') and (ns[j][0] != 'S'):
                 plt_data = ps_i[:,j]
-                csv_data[ns[j]] = list(plt_data)
-                plt.plot(ts, plt_data, label=ns[j], color=str2Color(gens[j]), alpha=pop2Alpha(ns[j]))
+                plt_lst = list(plt_data)
+                plt_datas += [plt_lst]
+                stplt_labels += [ns[j]]
+                plt_color = str2Color(gens[j])
+                stplt_colors += [plt_color]
+                csv_data[ns[j]] = plt_lst
+                data_to_keep = plt_lst[int(-frac_to_take*len(plt_lst)):]
+                f.write(f'{ns[j]}:\t{roundAndSN(np.mean(data_to_keep))}\t+- {roundAndSN(np.std(data_to_keep))}\n')
+                plt.plot(ts, plt_data, label=ns[j], color=plt_color, alpha=pop2Alpha(ns[j]))
+        f.write('\n')
         net_i = vpis
         if mdls[i].pn == 'h1': net_i = hpis
+        if do_freqs: net_i = [1. for ind in vpis]
         plt.plot(ts, net_i, label='I (total)')
         plt.plot(ts, 0*ts, alpha=0.)
         plt.title(f'{mdls[i].pn_full} population (infected)')
@@ -168,9 +185,16 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
         plt.xlabel('Simulation time')
         plt.ylabel('Population')
         file_nm = fn(mdls[i].pn)
-        plt.savefig(f'{file_nm}.png')
+        plt.savefig(f'{file_nm}_freq.png')
         pd.DataFrame(csv_data).to_csv(f'{file_nm}.csv')
         if plot_res: plt.show()
+        plt.close()
+        plt.stackplot(ts, *plt_datas, labels=stplt_labels, colors=stplt_colors)
+        plt.title(f'{mdls[i].pn_full} population: proportion plot')
+        plt.legend()
+        plt.ylabel('Relative proportion')
+        plt.xlabel('Simulation time')
+        plt.savefig(f'{file_nm}.png')
         plt.close()
     
     hists_with_pn = {'vec': hists_v, 'h1': hists_h}

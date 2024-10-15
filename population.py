@@ -56,22 +56,27 @@ class population:
         '''
         return [self.sus, self.inf[sn], self.rec[sn]]
     
-    def getAllPop(self, weight: bool=False):
+    def getAllPop(self, weight: bool=True, frqs: bool=True):
         '''
         Returns all population elements as a list. S is first, then all Is, then all Rs.
         '''
         infs = self.inf
-        if weight:
-            infs = dict.fromkeys(infs, 0)
-            for ind in self.indvs:
-                for gt in ind.genotype_freqs: infs[gt] += ind.genotype_freqs[gt]/ind.pc_flt
-        return [self.sus] + list(infs.values()) + list(self.rec.values())
+        if weight: infs = self.getInfWgt()
+        if frqs: infs = normalise(list(infs.values()))
+        if type(infs) == dict: infs = list(infs.values())
+        return [self.sus] + infs + list(self.rec.values())
     
     def getAllPopNms(self):
         '''
         Returns the names of all population elements. S is first, then all Is, then all Rs.
         '''
         return ['S'] + [f'I ({sn})' for sn in self.inf.keys()] + [f'R ({sn})' for sn in self.rec.keys()]
+    
+    def getInfWgt(self):
+        infs = dict.fromkeys(self.inf, 0)
+        for ind in self.indvs:
+            for gt in ind.genotype_freqs: infs[gt] += ind.genotype_freqs[gt]/ind.pc_flt
+        return infs
     
     def addPop(self, p: list[int], sn: str='init', pc_trans: int=0):
         '''
@@ -83,12 +88,6 @@ class population:
         - `pc_trans`: The number of parasites a mixed infection uses. Note that this is based on the *source,* not the destination!
         '''
         sn = self.match(sn)
-        # old_data = self.printDatStr()
-        # old_indvs_len = len(self.indvs)
-        # old_sus = self.sus
-        # old_real_infs = dict.fromkeys(self.inf, 0)
-        # for ind in self.indvs:
-        #     for gt in ind.getGenotypes(): old_real_infs[gt] += 1
         test_add = [self.sus, self.inf[sn], self.rec[sn]]
         neg = -1
         for i in range(3):
@@ -120,10 +119,7 @@ class population:
         inf_indvs = []
         i_change = 0
         to_change = {}
-        dead_gnts = []
         tba: list[individual] = []
-        # mod_inds: list[individual] = []
-        # pre_gnts: list[list[str]] = []
         if I > 0:
             sus_indvs = self.getSusInf(sn)
             strain_indvs = {sn_i: self.getSusInf(sn_i, is_present=True, indvs_lst=sus_indvs) for sn_i in self.inf}
@@ -134,25 +130,12 @@ class population:
             for strn in to_change:
                 sus_new += to_change[strn]
                 indvs_to_infect = strain_indvs[strn]
-                # shuffle(indvs_to_infect)
                 for ind in indvs_to_infect[:to_change[strn]]: ind.infectSelf(pc_trans, sn)
-                    # dead_gnts = ind.infectSelf(pc_trans, sn, do_return=True)
-                    # for d_g in dead_gnts: inf_new[d_g] -= 1
-                    # mod_inds += [ind]
             self.indvs += tba
         elif I < 0:
-            # self.refresh()
-            # random.shuffle(self.indvs)
             inf_indvs = self.getSusInf(sn, is_present=True)
-            # shuffle(inf_indvs)
             for ind in inf_indvs[:-I]:
-                # if not R:
-                #     f = open('inf_events_raw.dat', 'a')
-                #     f.write(f'death {ind.genotype_freqs}\n')
-                #     f.close()
                 ind.marked_for_death = True
-                # other_gts = list(set(ind.getGenotypes()) - set([sn]))
-                # for gt in other_gts: inf_new[gt] -= 1
                 for gt in ind.genotype_freqs:
                     if ind.genotype_freqs[gt]:
                         if gt != sn: inf_new[gt] -= 1
@@ -162,39 +145,6 @@ class population:
         self.sus = sus_new
         self.inf = inf_new
         self.rec = rec_new
-        # self.refresh()
-        # f = open('last_event.dat', 'w')
-        # f.write(f'\n-----\nadded {p} with strain {sn}\nold data:\n')
-        # f.write(old_data)
-        # f.write('\nnew data:\n')
-        # f.write(self.printDatStr())
-        # f.close()
-
-        # real_infs = dict.fromkeys(self.inf, 0)
-        # for ind in self.indvs:
-        #     for gt in ind.getGenotypes(): real_infs[gt] += 1
-        # if (self.init_pop and not self.is_vector) and (self.tot_pop != self.init_pop or self.inf != real_infs):
-        #     print(f'p: {p}, sn: {sn}')
-        #     print('OLD:')
-        #     print(old_data)
-        #     print(f'len old indvs: {old_indvs_len}; old sus: {old_sus}')
-        #     print('NEW:')
-        #     self.printDat()
-        #     print(f'len new indvs: {len(self.indvs)}; new sus: {self.sus}')
-        #     print(sum(self.rec.values()))
-        #     [print(ind.genotype_freqs) for ind in inf_indvs]
-        #     print(f'I_corr: {I_corr}')
-        #     print(f'i_change: {i_change}')
-        #     print(f'to_change: {to_change}')
-        #     print(f'old_real_infs: {old_real_infs}')
-        #     print(f'real_infs: {real_infs}')
-        #     print(f'self.inf: {self.inf}')
-        #     print(f'dead_gnts: {dead_gnts}')
-        #     print(f'tba gnts: {[ind.getGenotypes() for ind in tba]}')
-        #     print(f'mod_ind gnts: {[ind.getGenotypes() for ind in mod_inds]}')
-        #     print(f'pre_gnts: {pre_gnts}')
-        #     print(f'sus_indvs gnts: {[ind.getGenotypes() for ind in sus_indvs]}')
-        #     exit()
     
     def getChanges(self, pop_num: int, weights: list[float]) -> tuple[int, dict[str, int]]:
         '''
@@ -263,8 +213,7 @@ class population:
             for gnt in new_indv.genotype_freqs:
                 if new_indv.genotype_freqs[gnt]: self.inf[gnt] += 1
             self.sus -= 1
-        else: # choice(self.indvs).infectSelfMult(mix)
-            # random.shuffle(self.indvs)
+        else:
             indv_to_infect = choice(self.indvs)
             init_gts: list[str] = []
             init_is_full = indv_to_infect.num_gnts_present-1 == indv_to_infect.ploidy
