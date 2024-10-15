@@ -22,6 +22,7 @@ class individual:
     num_genes: int = 0
     pc_flt: float = 0.0
     main_all_char: str = ''
+    scnd_all_char: str = ''
     is_mixed_vec: bool = False
 
     def __init__(self, gnts: list[str]=[], gnt: str='', rng: np.random.Generator=None, **kwargs):
@@ -66,15 +67,15 @@ class individual:
         '''
         Simulates genetic drift & selection. (`times` is for speed-recording purposes; refer to sim_lib for details.)
         '''
+        if self.is_dip and not self.is_mixed_vec: return
         if not self.is_mixed: return # times
         # tm = time()
         all_freq = self.getAlleleFreqs()
         # times[6] += time() - tm
         # tm = time()
         a = self.main_all_char
-        self.is_mixed
+        b = self.scnd_all_char
         # times[7] += time() - tm
-        if not all_freq or all_freq == self.num_genes: return # times
         # tm = time()
         all_prop = all_freq/self.num_genes
         asb = self.all_sel_bias[a]
@@ -88,29 +89,29 @@ class individual:
             # tm = time()
             all_prop_bool = bool(all_prop) # note: consider conditioning on hap instead of using ploidy (speed?)
             self.genotype_freqs[self.ploidy*a] = all_prop_bool*self.pc
-            self.genotype_freqs[self.ploidy*chr(ord(a)+32)] = (not all_prop_bool)*self.pc
-            if self.is_dip: self.genotype_freqs[a + chr(ord(a)+32)] = 0 # switches to lowercase faster than .lower() method
+            self.genotype_freqs[self.ploidy*b] = (not all_prop_bool)*self.pc
+            if self.is_dip: self.genotype_freqs[a + b] = 0 # switches to lowercase faster than .lower() method
             # times[10] += time() - tm
             return # times
         if self.is_hap:
             # tm = time()
             gtfs_big = round(all_prop*self.pc_flt)
-            gtfs_sml = round((1-all_prop)*self.pc_flt)
-            if gtfs_big + gtfs_sml > self.pc: gtfs_sml = self.pc - gtfs_big
+            gtfs_sml = round((1.-all_prop)*self.pc_flt)
             self.genotype_freqs[a] = gtfs_big
-            self.genotype_freqs[chr(ord(a)+32)] = gtfs_sml
+            self.genotype_freqs[b] = gtfs_sml
             # times[11] += time() - tm
         else:
             # tm = time()
-            probs = [(1-all_prop)**2, 2*all_prop*(1-all_prop), all_prop**2]
+            inv_prop = 1. - all_prop
+            probs = [inv_prop**2, 2*all_prop*inv_prop, all_prop**2]
             all_dist = self.rng.multinomial(n=self.pc, pvals=probs)
             # times[12] += time() - tm
             # tm = time()
-            self.genotype_freqs[2*chr(ord(a)+32)] = all_dist[0]
-            self.genotype_freqs[a + chr(ord(a)+32)] = all_dist[1]
-            self.genotype_freqs[2*a] = all_dist[2]
+            self.genotype_freqs[b + b] = all_dist[0]
+            self.genotype_freqs[a + b] = all_dist[1]
+            self.genotype_freqs[a + a] = all_dist[2]
             # times[13] += time() - tm
-        return # times
+        # return # times
 
     def mutate(self):
         '''
@@ -118,21 +119,18 @@ class individual:
         '''
         if self.is_dip: return # times
         # tm = time()
-        param_base = self.pc_flt*self.mut_chance
         pre_gtfs = self.genotype_freqs.copy()
         # times[14] += time() - tm
         num_muts = 0
         for gt in self.genotype_freqs:
             # tm = time()
             if not pre_gtfs[gt]: continue
-            mut_param = param_base*pre_gtfs[gt]/self.pc_flt
+            mut_param = self.mut_chance*pre_gtfs[gt]
             # times[15] += time() - tm
             if mut_param < 0.05: continue
             # tm = time()
             if mut_param > 25: num_muts = int(mut_param)
             else: num_muts = self.rng.poisson(mut_param)
-            # num_muts = int(mut_param)
-            # print(f'num_muts {num_muts}, param {mut_param}')
             # times[16] += time() - tm
             if not num_muts: continue
             # tm = time()
@@ -148,7 +146,7 @@ class individual:
         if self.is_hap: return self.genotype_freqs[self.main_all_char]
         else:
             mac = self.main_all_char
-            return 2*self.genotype_freqs[f'{mac}{mac}'] + self.genotype_freqs[f'{mac}{chr(ord(mac)+32)}']
+            return 2*self.genotype_freqs[mac+mac] + self.genotype_freqs[mac+self.scnd_all_char]
 
     def getGenotypes(self):
         '''
@@ -204,17 +202,11 @@ class individual:
         - `do_return`: Whether or not to return the genotypes no longer present afterwards.
         '''
         if pc_num > self.pc: pc_num = self.pc # simplify w/assumptions about relative pc sizes?
-        # old_gnts: list[str] = []
-        # if do_return: old_gnts = self.getGenotypes()
         to_replace = self.infectMix(pc_num, do_test_contact=False)
         strn_match = self.match(strn)
         for stn in to_replace:
             self.genotype_freqs[stn] -= to_replace[stn]
             self.genotype_freqs[strn_match] += to_replace[stn]
-        # if do_return:
-        #     rv = list(set(old_gnts) - set(self.getGenotypes()))
-        #     if rv: print(f'meaningful return. old_gnts {old_gnts}, new_gnts {self.getGenotypes()}')
-        #     return rv
     
     def infectSelfMult(self, mix: dict[str, int]):
         '''
@@ -304,13 +296,12 @@ class individual:
             if not self.genotype_freqs[self.main_all_char]: return False
             if self.genotype_freqs[self.main_all_char] == self.pc: return False
             return True
-        else:
-            if not self.is_mixed_vec: return False
-            been_a_something_already = False
-            for gt in self.genotype_freqs:
-                if been_a_something_already and self.genotype_freqs[gt]: return True
-                elif self.genotype_freqs[gt]: been_a_something_already = True; continue
-            return False
+        if not self.is_mixed_vec: return False
+        been_a_something_already = False
+        for gt in self.genotype_freqs:
+            if been_a_something_already and self.genotype_freqs[gt]: return True
+            elif self.genotype_freqs[gt]: been_a_something_already = True; continue
+        return False
     
     @property
     def num_gnts_present(self):

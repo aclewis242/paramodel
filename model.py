@@ -117,9 +117,14 @@ class SIR:
                     if not indv.genotype_freqs[self_sn]: continue
                     elif indv.correction(sn=self_sn):
                         num_inf += 1
-                        if indv.is_mixed:
+                        if indv.is_hap:
                             pop.infectMix(indv.infectMix(pc_2_trans))
                             num_mixes += 1
+                        elif indv.is_mixed_vec:
+                            if indv.is_mixed:
+                                pop.infectMix(indv.infectMix(pc_2_trans))
+                                num_mixes += 1
+                            elif not indv.doesContactTransmit(): num_failed_trans += 1
                         elif not indv.doesContactTransmit(): num_failed_trans += 1
                     if num_inf >= rpt: break
                 num_loops += 1

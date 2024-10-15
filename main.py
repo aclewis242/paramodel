@@ -68,7 +68,7 @@ PARAMS_1 = HST1
 PARAMS_2 = VEC
 
 def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=1200., nt: float=1., num_hist: int=0,
-        plot_res: bool=False, t_scale: float=500., weight_infs: bool=True, do_mix_start: bool=False,):
+        plot_res: bool=False, t_scale: float=1000., weight_infs: bool=True, do_mix_start: bool=False,):
     '''
     Run the simulation.
 
@@ -199,5 +199,5 @@ def doTimeBreakdown():
     p_stats.print_stats()
 
 if __name__ == '__main__':
-    # run()
-    doTimeBreakdown()
+    run()
+    # doTimeBreakdown()

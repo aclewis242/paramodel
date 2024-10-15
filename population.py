@@ -295,9 +295,11 @@ class population:
             ind.all_sel_bias = self.all_sel_bias.copy()
             ind.all_transm_probs = self.all_transm_probs.copy()
             ind.main_all_char = self.main_all_char
+            ind.scnd_all_char = self.main_all_char.lower()
         self.indv_params['all_sel_bias'] = self.all_sel_bias
         self.indv_params['all_transm_probs'] = self.all_transm_probs
         self.indv_params['main_all_char'] = self.main_all_char
+        self.indv_params['scnd_all_char'] = self.main_all_char.lower()
 
     def getGntDist(self):
         '''
