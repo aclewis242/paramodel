@@ -1,6 +1,7 @@
 from sim_lib import *
 from allele import *
 from color import *
+from time import time
 import matplotlib.pyplot as plt
 import pandas as pd
 import os
@@ -8,21 +9,21 @@ import cProfile
 import pstats
 
 # Rates are in terms of '# events expected per day'
-VEC = {         # Parameters for transmission vector behavior (mosquito)
-    'bd': 0.071,  # Birth/death rate
-    'ir': 0.,   # Infection rate between individuals. Largely obsolete for a vector-based model
-    'rr': 0,    # Recovery rate
-    'wi': 0.,   # Waning immunity rate
+VEC = {             # Parameters for transmission vector behavior (mosquito)
+    'bd': 0.071,    # Birth/death rate
+    'ir': 0.,       # Infection rate between individuals. Largely obsolete for a vector-based model
+    'rr': 0,        # Recovery rate
+    'wi': 0.,       # Waning immunity rate
     'pn': 'vec',            # Short population name, used in console output & within the code
     'pn_full': 'Vector',    # Full population name, used in graph titles
     'is_vector': True,      # Whether or not the population is a disease vector
 }
 
-tau = 90
-hst_base_transm_p = 0.11
-ct_rate = 0.28
-h_ir = ct_rate*hst_base_transm_p
-wi_rate = h_ir*np.exp(-h_ir*tau)/(1 - np.exp(-h_ir*tau))
+tau = 90                    # Average duration of immunity (days)
+hst_base_transm_p = 0.11    # Probability of contact resulting in a host-vector transmission
+ct_rate = 0.28              # Contact rate (average bites per day)
+h_ir = ct_rate*hst_base_transm_p                            # Infection rate (only used in the context of wi_rate)
+wi_rate = h_ir*np.exp(-h_ir*tau)/(1 - np.exp(-h_ir*tau))    # Waning immunity rate
 
 HST1 = {
     'bd': 0.,
@@ -33,17 +34,17 @@ HST1 = {
     'pn_full': 'Host',
 }
 
-para_lifespan = 8.
+para_lifespan = 8.              # Parasite lifespan (hours)
 INDV_VEC = {
-    'pc': 20,
-    'para_lsp': para_lifespan,
-    'is_hap': False,
-    'do_mutation': False,
-    'pc_to_transmit': 15,
+    'pc': 20,                   # Parasite count
+    'para_lsp': para_lifespan, 
+    'is_hap': False,            # Whether or not this individual's parasites are haploid
+    'do_mutation': False,       # Whether or not this individual's parasites can mutate
+    'pc_to_transmit': 15,       # The number of parasites transmitted per infection
 }
 INDV_HST = {
     'pc': int(1e8),
-    'mut_chance': 2.94e-6,
+    'mut_chance': 2.94e-6,      # Chance of mutation per parasite per generation
     'para_lsp': para_lifespan,
     'is_hap': True,
     'do_mutation': True,
@@ -53,12 +54,15 @@ INDVS = [INDV_VEC, INDV_HST]
 
 D = allele(char='D')
 
-all_adv = 1.05
-wld_adv = 1/all_adv
-mut_adv = all_adv
-D.sel_advs = {'h1': 1.0, 'vec': 1.0}
-# D.transm_probs = {'h1': 0.45, 'vec': 0.07} # pop ID is the source -- e.g. 'h1' means 'prob of transmission from h1'
+all_adv = 1.05      # Selection advantage parameter
+wld_adv = 1/all_adv # Pro-wild allele (lowercase) selection advantage. Represented as a disadvantage for the mutated allele
+mut_adv = all_adv   # Pro-mutated allele (uppercase) selection advantage
+D.sel_advs = {'h1': 1.0, 'vec': 1.0} # Selection biases for mutated allele, relative to the wild allele (always 1.0)
+
+# For transmission probabilities: the pop ID is the source -- i.e., 'vec': 0.021 means 2.1% transmission chance from vector to host
 D.base_transm_probs = {'h1': hst_base_transm_p, 'vec': 0.021} # for wild-type allele
+
+# Switch between the two lines below to give transmission advantages/disadvantages
 D.transm_probs = D.base_transm_probs.copy()
 # D.transm_probs = {'h1': hst_base_transm_p, 'vec': 0.07}
 
@@ -69,7 +73,7 @@ PARAMS_1 = HST1
 PARAMS_2 = VEC
 
 def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=1200., nt: float=1., num_hist: int=0,
-        plot_res: bool=True, t_scale: float=10000., weight_infs: bool=True, init_mut_prop: float=0.4, do_freqs: bool=True, fdir: str=''):
+        plot_res: bool=False, t_scale: float=500.,init_mut_prop: float=0.4, fdir: str=''):
     '''
     Run the simulation.
 
@@ -80,9 +84,8 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
     - `num_hist`: The number of histograms to generate (varying over time).
     - `plot_res`: Whether or not to display the results' graph, as a bool.
     - `t_scale`: The number of days to run the simulation for.
-    - `weight_infs`: Whether or not to display 'weighted' data for infections (weighted according to the strains' relative
-        genotype frequencies).
-    - `do_mix_start`: Whether or not to have a mixed distribution of infected individuals (wild & mutated) or uniform (just wild).
+    - `init_mut_prop`: The initial fraction of mutated (uppercase) alleles. Must be between 0 and 1.
+    - `fdir`: The directory to save the results under.
     '''
     exts_to_rm = ['dat', 'csv', 'txt']
     [[os.remove(file) for file in os.listdir() if file.endswith(f'.{ext}')] for ext in exts_to_rm]
@@ -98,30 +101,28 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
         i_params['para_gens'] = para_gens
         i_params['alleles'] = alleles
     nt = float(int(nt*t_scale))
+
     hosts_1 = population(p0[0], **INDV_HST)
     vectors = population(p0[1], **INDV_VEC)
+
     m1 = SIR(hosts_1, **PARAMS_1)
     m2 = SIR(vectors, **PARAMS_2)
+
     m1.itr = {vectors: ct_rate}
     m1.other_pop = vectors
     m2.itr = {hosts_1: ct_rate}
     m2.other_pop = hosts_1
+
     mdls = [m1, m2]
+
     t0 = time()
-    ts, ps, times, pops, ps_unwgt, vpis, hpis, hists_v, hists_h, hist_tms = simShell(
-        t_max, mdls, nt=nt, alleles=alleles, weight_infs=weight_infs, init_mut_prop=init_mut_prop, num_hist=num_hist, do_freqs=do_freqs)
+    ts, ps, pops, hists_v, hists_h, hist_tms = simShell(t_max, mdls, nt=nt, alleles=alleles, init_mut_prop=init_mut_prop, num_hist=num_hist)
     ex_tm = time() - t0
-    # times_norm = normPercentList(times)
     print(f'\nExecution time: {roundNum(ex_tm, prec=3)}') # consider colored console output for readability
-    # print('Breakdown:')
-    # printFloatList(times_norm)
-    # print(f'Extra time: {ex_tm - sum(times)}')
-    # print(f'Relative proportion of time spent in addPop: {roundNum(sum([sum(p.times) for p in pops])/sum(times))}')
-    # for p in pops:
-    #     print(f'{p.pn} time breakdown:')
-    #     printFloatList(normPercentList(p.times))
+
     [p.printDat() for p in pops]
     # dimensions of ps: layer 1 is times, layer 2 is models at that time, layer 3 is pop #s for that model
+
     f = open('inf_events.dat', 'x')
     f_raw = open('inf_events_raw.dat', 'r')
     inf_events = {}
@@ -132,8 +133,8 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
     [f.write(f'{i_e}: {inf_events[i_e]}\n') for i_e in inf_events]
     f.close()
     f_raw.close()
-    
-    def getDims(lst: list, tab: str=''): # Displays the dimensions of the given list. Useful when handling complex/unorthodox structures.
+
+    def getDims(lst: list, tab: str=''): # Displays the dimensions of the given list. Useful when handling complex/unorthodox structures
         if type(lst) == list:
             print(f'{tab}list of dim {len(lst)} containing:')
             getDims(lst[0], f'{tab}\t')
@@ -145,10 +146,11 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
         else:
             print(f'{tab}{type(lst).__name__}')
             return
-    output_fn = f'{fdir}net_output.opt'
+    
+    frac_to_take = 0.2                  # Fraction of the simulation to use when recording means (in net_output.opt)
+    output_fn = f'{fdir}net_output.opt' # '.opt' is a plain text file. Only marked that way to keep the file clearing from catching it
     if os.path.exists(output_fn): os.remove(output_fn)
     f = open(output_fn, 'x')
-    frac_to_take = 0.2
     for i in range(len(mdls)):
         ns = [''.join(n.split('.')) for n in pops[i].getAllPopNms()]
         f.write(f'\t{mdls[i].pn_full}:\n')
@@ -156,9 +158,6 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
         for n in ns:
             if '(' in n and ')' in n: gens += [n[n.index('(')+1:n.index(')')]]
             else: gens += [n]
-        # ps_unwgt_i = np.array([k[i] for k in ps_unwgt])
-        # if weight_infs and mdls[i].pop.do_indvs: [plt.plot(ts, ps_unwgt_i[:,j], label=f'{ns[j]} (unweighted)', color=str2Color(gens[j]),
-        #     alpha=pop2Alpha(ns[j])/4) for j in range(len(ns)) if (ns[j][0] != 'R') and (ns[j][0] != 'S')]
         ps_i = np.array([k[i] for k in ps])
         csv_data = {'times': ts}
         plt_datas = []
@@ -177,9 +176,9 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
                 f.write(f'{ns[j]}:\t{roundAndSN(np.mean(data_to_keep))}\t+- {roundAndSN(np.std(data_to_keep))}\n')
                 plt.plot(ts, plt_data, label=ns[j], color=plt_color, alpha=pop2Alpha(ns[j]))
         f.write('\n')
-        net_i = vpis
-        if mdls[i].pn == 'h1': net_i = hpis
-        if do_freqs: net_i = [1. for ind in vpis]
+
+        # Plot frequencies
+        net_i = [1. for t in ts]
         plt.plot(ts, net_i, label='I (total)')
         plt.plot(ts, 0*ts, alpha=0.)
         plt.title(f'{mdls[i].pn_full} population (infected)')
@@ -188,8 +187,11 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
         plt.ylabel('Population')
         file_nm = f'{fdir}{fn(mdls[i].pn)}'
         plt.savefig(f'{file_nm}_freq.png')
-        pd.DataFrame(csv_data).to_csv(f'{file_nm}.csv')
         plt.close()
+
+        pd.DataFrame(csv_data).to_csv(f'{file_nm}.csv')
+
+        # Plot proportions
         plt.stackplot(ts, *plt_datas, labels=stplt_labels, colors=stplt_colors)
         plt.title(f'{mdls[i].pn_full} population: proportion plot')
         plt.legend()
@@ -199,6 +201,7 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
         if plot_res: plt.show()
         plt.close()
     
+    # Save histograms
     hists_with_pn = {'vec': hists_v, 'h1': hists_h}
     hist_max = p0[0][1]
     for hpn in hists_with_pn:
@@ -214,7 +217,7 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
             plt.savefig(f'hists/{hpn}_{i}.png')
             plt.close()
 
-def doTimeBreakdown():
+def doTimeBreakdown(): # Runs the simulation with a profiler & processes the output accordingly
     time_output_fn = 'time_breakdown.dat'
     cProfile.run('run()', time_output_fn)
     time_output_txt = 'time_breakdown.txt'
@@ -224,7 +227,7 @@ def doTimeBreakdown():
     p_stats.sort_stats('cumtime')
     p_stats.print_stats()
 
-def doMultipleRuns(n: int=3, fdir: str=''):
+def doMultipleRuns(n: int=3, fdir: str=''): # Run the simulation multiple times & save the results to a particular directory
     if n == 1: run(); return
     full_dir = f'full_outputs/{fdir}/'
     for i in range(n):
@@ -233,10 +236,11 @@ def doMultipleRuns(n: int=3, fdir: str=''):
 
 if __name__ == '__main__':
     # run()
-    # doTimeBreakdown()
-    adv_amt = str(mut_adv).split('.')[-1]
-    adv_tgt = 'host'
-    adv_type = 'sel'
-    num_runs = 1
-    fdir = f'{adv_type}adv_{adv_tgt}_{adv_amt}'
-    doMultipleRuns(n=num_runs, fdir='control')
+    doTimeBreakdown()
+
+    # adv_amt = str(mut_adv).split('.')[-1]
+    # adv_tgt = 'host'
+    # adv_type = 'sel'
+    # num_runs = 1
+    # fdir = f'{adv_type}adv_{adv_tgt}_{adv_amt}'
+    # doMultipleRuns(n=num_runs, fdir='control')

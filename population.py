@@ -1,6 +1,6 @@
 from func_lib import *
 from individual import *
-from random import shuffle, choice
+from random import choice
 
 class population:
     '''
@@ -56,14 +56,11 @@ class population:
         '''
         return [self.sus, self.inf[sn], self.rec[sn]]
     
-    def getAllPop(self, weight: bool=True, frqs: bool=True):
+    def getAllPop(self) -> list[float]:
         '''
-        Returns all population elements as a list. S is first, then all Is, then all Rs.
+        Returns all population elements as a list. S is first, then all Is (frequencies), then all Rs.
         '''
-        infs = self.inf
-        if weight: infs = self.getInfWgt()
-        if frqs: infs = normalise(list(infs.values()))
-        if type(infs) == dict: infs = list(infs.values())
+        infs = normalise(list(self.getInfWgt().values()))
         return [self.sus] + infs + list(self.rec.values())
     
     def getAllPopNms(self):
@@ -73,6 +70,9 @@ class population:
         return ['S'] + [f'I ({sn})' for sn in self.inf.keys()] + [f'R ({sn})' for sn in self.rec.keys()]
     
     def getInfWgt(self):
+        '''
+        Get a dict of strain to # infected, weighted according to the strain's presence within the individual.
+        '''
         infs = dict.fromkeys(self.inf, 0)
         for ind in self.indvs:
             for gt in ind.genotype_freqs: infs[gt] += ind.genotype_freqs[gt]/ind.pc_flt
@@ -148,7 +148,7 @@ class population:
     
     def getChanges(self, pop_num: int, weights: list[float]) -> tuple[int, dict[str, int]]:
         '''
-        Distributes infections between full-susceptibles and infected-susceptibles.
+        Distributes infections between full-susceptibles and infected-susceptibles according to the given weights.
         '''
         to_change_lst = self.rng.multinomial(pop_num, weights)
         return to_change_lst[0], dictify(self.inf.keys(), to_change_lst[1:])
@@ -265,6 +265,9 @@ class population:
         if update: self.update()
     
     def update(self):
+        '''
+        Update the (macroscopic) strain to infected dictionary to make sure it aligns with the microscopic state of the simulation.
+        '''
         self.inf = dict.fromkeys(self.inf, 0)
         for ind in self.indvs:
             gtfs = ind.genotype_freqs

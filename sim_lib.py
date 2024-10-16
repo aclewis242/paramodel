@@ -1,10 +1,10 @@
 from model import *
 from allele import *
-from time import time
+from random import shuffle
 import numpy as np
 
-def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=[], weight_infs: bool=False, init_mut_prop: float=0.,
-             num_hist: int=5, do_freqs: bool=True):
+def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=[], init_mut_prop: float=0.,
+             num_hist: int=5):
     '''
     Manages the time iterations of the simulation.
 
@@ -13,24 +13,17 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
     - `mdls`: A list containing the models governing each population (initialised with parameters & populations).
     - `nt`: The number of time steps to use, as a 'float' (e.g. 2e5 - integer in floating-point form).
     - `alleles`: The list of all possible alleles (allele objects). Irrelevant if not using the allele model.
-    - `weight_infs`: Whether or not to weight infected data according to individuals' genotype frequencies.
-    - `do_mix_start`: Whether or not to have a mixed distribution of infected individuals (wild & mutated) or uniform (just wild).
+    - `init_mut_prop`: The initial proportion of mutated alleles to use. Must be between 0 and 1.
     - `num_hist`: The number of histograms to generate (varying over time).
 
     ### Returns
     - `ts`: A NumPy array of the times visited by the simulation (neither equispaced nor integer).
     - `ps`: A NumPy array that contains the populations (flattened) at each time. Rows index population, columns index time.
-    - `times`: A list containing the computation times of the various components of the method.
     - `pops`: A list of all population objects.
-    - `ps_unwgt`: Like `ps`, but with unweighted infected information.
-    - `vpis`: A list of the total number of infected vectors at each time.
-    - `hpis`: Like `vpis`, but for hosts instead of vectors.
     - `hists_v`: Histogram data for vectors.
     - `hists_h`: Histogram data for hosts.
     - `hist_tms`: The times at which histogram data were taken.
     '''
-    # tm = time()
-    times = [0 for i in range(21)]
     dt = tmax/(nt - 1)
     nt = int(nt)
     if num_hist < 2 and num_hist != 0: num_hist = 2
@@ -90,11 +83,9 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
         for sm in s_mdls:
             if sm not in s_mdls_2: s_mdls_2 += [sm]
         s_mdls = s_mdls_2
-        # [print(f'{sm} r0: {sm.r0(vec_mdl)}') for sm in s_mdls]
     ts_i = np.array(range(int(nt)))
     ps_init = np.empty(shape=(nt, len(mdls), len(mdls[0].pop.getAllPop())))
     ps = listify(ps_init)
-    ps_unwgt = listify(ps)
     pops = [m.pop for m in mdls]
     pops_check = []
     for p in list(pops):
@@ -121,7 +112,6 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
                 ind.genotype_freqs[max_strn.upper()] = ind.pc
                 ind.genotype_freqs[max_strn.lower()] = 0
             shuffle(p.individuals)
-            # [print(ind.genotype_freqs) for ind in p.individuals]
         else:
             p.inf[max_strn] = 0
             p.inf[max_strn.lower()] = max_inf
@@ -131,42 +121,26 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
         p.num_gnts = len(p.gnts)
     for m in mdls: m.bds = m.bd/m.pop.num_gnts
 
-    hpis = []
-    vpis = []
     hists_h = []
     hists_v = []
     hist_tms = []
-    # times[0] += time() - tm
     for i in ts_i:
-        # tm = time()
         for j in range(num_mdls):
             mdls[j].setRs()
             for k in range(num_Rs):
                 all_Rs[j*num_Rs+k] = mdls[j].Rs[k]
         sum_Rs = sum(all_Rs)
-        # times[1] += time() - tm
-        # tm = time()
         Xs = adaptSim(all_Rs/sum_Rs, sum_Rs, dt)
-        # times[3] += time() - tm
-        # tm = time()
         for i_m in range(num_mdls):
             for i_r in range(num_Rs):
                 rpt = Xs[i_m*num_Rs+i_r]
                 if rpt: mdls[i_m].trans(i_r, rpt)
-        # times[2] += time() - tm
-        # tm = time()
-        for i_p in range(num_pops):
-            ps[i][i_p] = pops[i_p].getAllPop(weight=weight_infs, frqs=do_freqs)
-            # ps_unwgt[i][i_p] = pops[i_p].getAllPop()
-        # times[3] += time() - tm
+        for i_p in range(num_pops): ps[i][i_p] = pops[i_p].getAllPop()
         for p in pops:
             for indv in p.individuals: indv.simPara()
             p.update()
-        # tm = time()
         vpi = len(vec_pop.individuals)
         hpi = len(host_pop.individuals)
-        vpis += [vpi]
-        hpis += [hpi]
         print(f'{int(100*i/nt)}%; vec indvs: {vpi}; host indvs: {hpi}; vec pop: {vec_pop.tot_pop}; host pop: {host_pop.tot_pop} ',
                end='\r')
         hist_check = hist_fac*i
@@ -176,13 +150,10 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
             hists_h += [host_pop.getGntDist()]
             hists_v += [vec_pop.getGntDist()]
             hist_tms += [i*dt]
-        # times[19] += time() - tm
-    # tm = time()
     hists_h += [host_pop.getGntDist()]
     hists_v += [vec_pop.getGntDist()]
     hist_tms += [ts_i[-1]*dt]
-    # times[20] += time() - tm
-    return ts_i*dt, ps, times, pops, ps_unwgt, vpis, hpis, hists_v, hists_h, hist_tms
+    return ts_i*dt, ps, pops, hists_v, hists_h, hist_tms
 
 def adaptSim(ps: np.ndarray[float], sum_Rs: float, dt: float):
     '''

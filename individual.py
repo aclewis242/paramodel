@@ -1,29 +1,27 @@
 from gen_funcs import *
 from func_lib import *
-from allele import *
-from time import time
 from random import choices, random
 
 class individual:
     '''
     The class for explicitly-modelled individuals.
     '''
-    pc = 0
-    genotype_freqs: dict[str, int] = {}
-    is_hap = False
-    mut_chance = 0.0
-    para_gens = 1
-    do_mutation = False
-    rng: np.random.Generator = None
-    pc_to_transmit = 0
-    marked_for_death = False
-    all_sel_bias: dict[str, float] = {}
-    all_transm_probs: dict[str, float] = {}
-    num_genes: int = 0
-    pc_flt: float = 0.0
-    main_all_char: str = ''
-    scnd_all_char: str = ''
-    is_mixed_vec: bool = False
+    pc = 0                                  # Parasite population within the individual
+    genotype_freqs: dict[str, int] = {}     # Dict of genotypes to 'frequencies' (absolute #s)
+    is_hap = False                          # Whether or not this individual's parasites are haploid
+    mut_chance = 0.0                        # Chance of mutation per parasite per generation
+    para_gens = 1                           # Number of parasite generations per time step
+    do_mutation = False                     # Whether or not this individual's parasites are allowed to mutate
+    rng: np.random.Generator = None         # NumPy random number generator object
+    pc_to_transmit = 0                      # The number of parasites that get transmitted during a successful infection
+    marked_for_death = False                # Marked true to indicate that it has died/recovered and needs to be removed
+    all_sel_bias: dict[str, float] = {}     # Allele selection biases (for genetic drift)
+    all_transm_probs: dict[str, float] = {} # Allele transmission probabilities
+    num_genes: int = 0                      # The total number of alleles throughout the individual's parasite population
+    pc_flt: float = 0.0                     # Parasite population as a float
+    main_all_char: str = ''                 # Mutated (uppercase) allele character
+    scnd_all_char: str = ''                 # Wild (lowercase) allele character
+    is_mixed_vec: bool = False              # Whether or not this individual started out as a mixed-strain vector
 
     def __init__(self, gnts: list[str]=[], gnt: str='', rng: np.random.Generator=None, **kwargs):
         '''
@@ -32,12 +30,7 @@ class individual:
         ### Parameters
         - `gnts`: The list of genotypes that are allowed to be present within the individual
         - `gnt`: The starting genotype of the parasites
-        - `gdm`: The genetic drift model to use (ref. gen_funcs for options). Defaults to Wright-Fisher
-        - `tps`: The matrix of transition probabilities to use for genetic drift. Generally the same as the output of `gdm`, but
-            they can be pre-provided for the sake of speed
-        - `gr`: The range of allowed outcomes from the transition probability matrix (0-ploidy*pc). Not meant to vary, but taking it
-            as an argument helps with speed
-        - `rng`: The NumPy random number generator object to use. Again, not meant to vary, but making a new one for every individual
+        - `rng`: The NumPy random number generator object to use. Not meant to vary, but making a new one for every individual
             would be unnecessary & time-consuming
         - `pc`: The number of parasites present in the individual
         - `is_hap`: Whether or not the individual's parasites are haploid
@@ -56,89 +49,61 @@ class individual:
 
     def simPara(self):
         '''
-        Simulates the parasites' behavior. (`times` is for speed-recording purposes; refer to sim_lib for details.)
+        Simulates the parasites' behavior.
         '''
         for i in range(self.para_gens):
             if self.do_mutation: self.mutate()
             self.genDrift()
-        # self.checkGtfs('simPara')
-        # return times
     
     def genDrift(self):
         '''
-        Simulates genetic drift & selection. (`times` is for speed-recording purposes; refer to sim_lib for details.)
+        Simulates genetic drift & selection.
         '''
         if self.is_dip and not self.is_mixed_vec: return
-        if not self.is_mixed: return # times
-        # tm = time()
+        if not self.is_mixed: return
         all_freq = self.getAlleleFreqs()
-        # times[6] += time() - tm
-        # tm = time()
         a = self.main_all_char
         b = self.scnd_all_char
-        # times[7] += time() - tm
-        # tm = time()
         all_prop = all_freq/self.num_genes
         asb = self.all_sel_bias[a]
         w_avg = asb*all_prop + (1. - all_prop)
         all_prop *= asb/w_avg
-        # times[8] += time() - tm
-        # tm = time()
         if self.is_dip: all_prop = self.rng.binomial(self.num_genes, all_prop)/self.num_genes
-        # times[9] += time() - tm
         if not all_prop or all_prop == 1:
-            # tm = time()
-            all_prop_bool = bool(all_prop) # note: consider conditioning on hap instead of using ploidy (speed?)
+            all_prop_bool = bool(all_prop)
             self.genotype_freqs[self.ploidy*a] = all_prop_bool*self.pc
             self.genotype_freqs[self.ploidy*b] = (not all_prop_bool)*self.pc
-            if self.is_dip: self.genotype_freqs[a + b] = 0 # switches to lowercase faster than .lower() method
-            # times[10] += time() - tm
-            return # times
+            if self.is_dip: self.genotype_freqs[a + b] = 0
+            return
         if self.is_hap:
-            # tm = time()
             gtfs_big = round(all_prop*self.pc_flt)
             gtfs_sml = round((1.-all_prop)*self.pc_flt)
             self.genotype_freqs[a] = gtfs_big
             self.genotype_freqs[b] = gtfs_sml
-            # times[11] += time() - tm
         else:
-            # tm = time()
             inv_prop = 1. - all_prop
             probs = [inv_prop**2, 2*all_prop*inv_prop, all_prop**2]
             all_dist = self.rng.multinomial(n=self.pc, pvals=probs)
-            # times[12] += time() - tm
-            # tm = time()
             self.genotype_freqs[b + b] = all_dist[0]
             self.genotype_freqs[a + b] = all_dist[1]
             self.genotype_freqs[a + a] = all_dist[2]
-            # times[13] += time() - tm
-        # return # times
 
     def mutate(self):
         '''
         Effects the mutations observed over a single generation.
         '''
-        if self.is_dip: return # times
-        # tm = time()
+        if self.is_dip: return
         pre_gtfs = self.genotype_freqs.copy()
-        # times[14] += time() - tm
         num_muts = 0
         for gt in self.genotype_freqs:
-            # tm = time()
             if not pre_gtfs[gt]: continue
             mut_param = self.mut_chance*pre_gtfs[gt]
-            # times[15] += time() - tm
             if mut_param < 0.05: continue
-            # tm = time()
             if mut_param > 25: num_muts = int(mut_param)
             else: num_muts = self.rng.poisson(mut_param)
-            # times[16] += time() - tm
             if not num_muts: continue
-            # tm = time()
             self.genotype_freqs[gt] -= num_muts
             self.genotype_freqs[gt.swapcase()] += num_muts
-            # times[17] += time() - tm
-        # return times
 
     def getAlleleFreqs(self):
         '''
@@ -155,43 +120,31 @@ class individual:
         '''
         return [gt for gt in self.genotype_freqs if self.genotype_freqs[gt]]
     
-    # def getGenotypeTransWeights(self):
-    #     '''
-    #     Get the genotypes' transmission weights.
-    #     '''
-    #     weights_unnorm = [self.all_transm_probs[gt[0]]*self.genotype_freqs[gt]/self.pc_flt for gt in self.genotype_freqs]
-    #     wgts_sum = sum(weights_unnorm)
-    #     return [wgt_unnorm/wgts_sum for wgt_unnorm in weights_unnorm], wgts_sum
-    
     def getGenotypeTransWeights_unwgt(self):
+        '''
+        Returns the genotypes' transmission weights.
+        '''
         return [self.genotype_freqs[gt]/self.pc_flt for gt in self.genotype_freqs]
 
-    # def infectMult(self, num: int=1) -> dict[str, int]:
-    #     '''
-    #     Performs multiple infections. Returns a dict of strain to # times infected.
-    #     '''
-    #     gtf_wgts, num_adj = self.getGenotypeTransWeights()
-    #     print(f'gtf_wgts: {gtf_wgts}, num_adj: {num_adj}, num: {num}, gtfs: {self.genotype_freqs}')
-    #     exit()
-    #     return dictify(self.genotype_freqs.keys(), self.rng.multinomial(round(num*num_adj), gtf_wgts))
-
     def doesContactTransmit(self):
+        '''
+        Whether or not a contact between this individual and a susceptible individual resutls in a transmission.
+        '''
         gtf_wgt_sum = 0
         for gt in self.genotype_freqs: gtf_wgt_sum += self.all_transm_probs[gt[0]]*self.genotype_freqs[gt]/self.pc_flt
         return random() < gtf_wgt_sum
 
     def infectMix(self, pc_num: int=1, do_test_contact: bool=True):
+        '''
+        Performs a mixed infection (dict of parasite genotype to count). Can also be used to simply get a distribution of parasites if desired.
+
+        ### Parameters
+        - `pc_num`: The number of parasites to use in the distribution.
+        - `do_test_contact`: Whether or not to allow the transmission to fail, depending on the alleles' transmission probabilities.
+        '''
         if do_test_contact:
             if not self.doesContactTransmit(): return dict.fromkeys(self.genotype_freqs, 0)
         return dictify(self.genotype_freqs.keys(), self.rng.multinomial(pc_num, self.getGenotypeTransWeights_unwgt()))
-
-    def infect(self, gtfs: dict[str, int]={}):
-        '''
-        Performs an infection. (Obsolete?)
-        '''
-        if not gtfs: gtfs = self.genotype_freqs
-        print('doing infect method (this shouldn\'t be happening anywhere, I think)')
-        return choices(list(gtfs.keys()), self.getGenotypeTransWeights_unwgt())[0]
     
     def infectSelf(self, pc_num: int, strn: str) -> list[str]:
         '''
@@ -200,17 +153,14 @@ class individual:
         ### Parameters
         - `pc_num`: The number of parasites in the transmission.
         - `strn`: The strain to infect it with.
-        - `do_return`: Whether or not to return the genotypes no longer present afterwards.
         '''
-        if pc_num > self.pc: pc_num = self.pc # simplify w/assumptions about relative pc sizes?
+        if pc_num > self.pc: pc_num = self.pc
         to_replace = self.infectMix(pc_num, do_test_contact=False)
         strn_match = self.match(strn)
         for stn in to_replace:
             self.genotype_freqs[stn] -= to_replace[stn]
             if self.genotype_freqs[stn] < 0: to_replace[stn] += self.genotype_freqs[stn]; self.genotype_freqs[stn] = 0
             self.genotype_freqs[strn_match] += to_replace[stn]
-        # for gt in self.genotype_freqs:
-        #     if self.genotype_freqs[gt] < 0: print(f'argh (infself). gtfs {self.genotype_freqs}')
     
     def infectSelfMult(self, mix: dict[str, int]):
         '''
@@ -241,7 +191,6 @@ class individual:
             rem = amt_raw - amt
             self.genotype_freqs[matched] += amt
         if rem > 0.999: self.genotype_freqs[matched] += 1
-        # self.checkGtfs('s2mix')
 
     def match(self, s2m: str):
         '''

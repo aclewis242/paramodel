@@ -10,6 +10,9 @@ def normalise(l: list[float]):
     return [l_el/l_sum for l_el in l]
 
 def normalise_np(l: np.ndarray[float]):
+    '''
+    Normalises the given NumPy array.
+    '''
     return l/sum(l)
 
 def fn(f_n: str):
@@ -25,6 +28,7 @@ def float2SN(f: float, p: int=2, do_sci: bool=False):
     ### Parameters
     - `f`: The number in question.
     - `p`: The number (int) of digits of precision (past the decimal point). For example: f=1302, p=2 -> 1.30e3.
+    - `do_sci`: Whether or not to force scientific notation (e.g. 13 -> 1.3e1).
     '''
     if ((f < 10**(p+1) and f > 10**(-p)) or not f) and not do_sci: return f'{f}'
     else:
@@ -42,6 +46,14 @@ def roundNum(f: float, prec: int=2) -> float:
     return round(f*(10**prec))/(10**prec)
 
 def roundAndSN(f: float, u_lim: int=4, l_lim: int=2, prec: int=3):
+    '''
+    General-purpose number processing method. Will return a number with the given precision if it falls outside the given limits.
+
+    ### Parameters
+    - `f`: The number in question.
+    - `u_lim`: The power of 10 to use as an upper limit for scientific notation.
+    - `l_lim`: The power of 10 to use as a lower limit for scientific notation. Positive means negative (i.e. l_lim = 2 means a limit of 0.01.)
+    '''
     if (f < 10**u_lim and f > 10**(-l_lim+1)) or not f: return f'{roundNum(f, prec=prec)}'
     else: return float2SN(f, p=prec, do_sci=True)
 

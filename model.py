@@ -6,25 +6,21 @@ class SIR:
     '''
     The stochastic SIR model class.
     '''
-    pn = ''
-    pn_full = ''
-    sn = 'init'
-    genotype = ''
-    alleles = []
-    bd = -1.0
-    ir = -1.0
-    rr = -1.0
-    wi = -1.0
-    itr: dict[population, float] = {}
-    itr_keys: list[population] = []
-    mr = 0.0
-    dt = 0.0
-    bds = 0.0
-    Rs = []
-    Es = []
-    num_Es = -1
-    is_vector = False
-    other_pop: population = None
+    pn = ''         # Short population name
+    pn_full = ''    # Full population name
+    sn = 'init'     # Strain name (i.e. genotype)
+    alleles = []    # List of allele objects
+    bd = -1.0       # Birth/death rate
+    ir = -1.0       # Infection rate (obsolete)
+    rr = -1.0       # Recovery rate
+    wi = -1.0       # Waning immunity rate
+    itr: dict[population, float] = {}   # Dict of population objects to contact rates (usually only one entry)
+    bds = 0.0       # Birth/death rate (for susceptibles specifically; value assigned in setRs)
+    Rs = []         # Transition rate matrix
+    Es = []         # List of events (3-element arrays that change S, I, R respectively)
+    num_Es = -1     # Length of Es
+    is_vector = False               # Whether or not this model describes a vector
+    other_pop: population = None    # The other population this model interacts with
     
     def __init__(self, p0: population, **kwargs):
         '''
@@ -35,12 +31,11 @@ class SIR:
         - `pn`: The name (short) of the population this model belongs to
         - `pn_full`: The full name of the population this model belongs to
         - `sn`: The name of the strain this model belongs to (i.e. genotype, in most cases)
-        - `bd`: Birth/death rate
-        - `ir`: Infection rate
-        - `rr`: Recovery rate
-        - `wi`: Waning immunity rate
+        - `bd`: Birth/death rate (only relevant to vectors)
+        - `ir`: Infection rate (obsolete)
+        - `rr`: Recovery rate (only relevant to hosts)
+        - `wi`: Waning immunity rate (only relevant to hosts)
         - `itr`: Interspecific transmission rates from this model to other populations (dict pop:float)
-        - `mr`: Mutation rate
         - `is_vector`: Whether or not this model describes a vector population (bool)
         '''
         self.pop = p0
@@ -57,8 +52,6 @@ class SIR:
         E7 = [1, 0, -1] # Waning immunity
         self.Es = [E1, E2, E3, E4, E5, E6, E7, E1, E1, E1] # first E1, E2 are deprecated
         self.num_Es = len(self.Es)
-        self.itr_keys = list(self.itr.keys())
-        # self.setRs()
 
     def setRs(self):
         '''
@@ -87,9 +80,7 @@ class SIR:
                     self.bd*I_UW,   # infected births (as in births from infecteds, not newly-born infecteds)
                     self.bd*R,      # recovered births (again as in births from recovereds)
                     self.itr[p2]*I_WS*(p2.sus+p2.getSusInfNum(self.sn))/p2.tot_pop]
-                    # ] + [self.itr[p2]*I_WS*(p2.sus+p2.getSusInfNum(self.sn))/p2.tot_pop for p2 in self.itr]
-                        # interspecific contacts (cross-pop infections)
-        # return self.Rs
+                                    # interspecific contacts (cross-pop infections)
 
     def trans(self, idx: int, rpt: int=1):
         '''
@@ -103,7 +94,7 @@ class SIR:
         self_sn = self.sn
         pc_2_trans = self.pop.pc_to_transmit
         if idx >= self.num_Es:
-            pop = self.itr_keys[idx-self.num_Es]
+            pop = self.other_pop
             idx = 1
             num_inf = 0
             num_mixes = 0
@@ -112,12 +103,11 @@ class SIR:
             max_loops = 10000
             indvs_lst = self.pop.individuals
             while num_inf < rpt:
-                # random.shuffle(self.pop.individuals)
                 for indv in indvs_lst:
                     if not indv.genotype_freqs[self_sn]: continue
                     elif indv.correction(sn=self_sn):
                         num_inf += 1
-                        if indv.is_hap:
+                        if indv.is_hap: # weird conditional structure is to save on time
                             pop.infectMix(indv.infectMix(pc_2_trans))
                             num_mixes += 1
                         elif indv.is_mixed_vec:
@@ -138,7 +128,6 @@ class SIR:
         '''
         new_mdl = SIR(self.pop, sn=nsn, **self.__dict__)
         new_mdl.itr = dict(new_mdl.itr)
-        new_mdl.itr_keys = list(new_mdl.itr.keys())
         return new_mdl
     
     def mutate(self, param: str, fac: float, vec: 'SIR'=None):
@@ -182,7 +171,6 @@ class SIR:
         - `vec`: The corresponding (same strain) model for the vector population. Only necessary if one of the alleles affects `itr`.
         '''
         new_model = self.newStrain(g)
-        new_model.genotype = g
         for a in alleles:
             if a.char in g:
                 if a.fav_pop == new_model.pn: new_model.mutate(a.param, 1+a.fac, vec)
