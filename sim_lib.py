@@ -3,7 +3,7 @@ from allele import *
 from time import time
 import numpy as np
 
-def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=[], weight_infs: bool=False, do_mix_start: bool=False,
+def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=[], weight_infs: bool=False, init_mut_prop: float=0.,
              num_hist: int=5, do_freqs: bool=True):
     '''
     Manages the time iterations of the simulation.
@@ -113,10 +113,11 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
             if p.inf[s] > max_inf:
                 max_inf = p.inf[s]
                 max_strn = s
-        if do_mix_start:
-            p.inf[max_strn] = max_inf/2
-            p.inf[max_strn.lower()] = max_inf/2
-            for ind in p.individuals[:int(len(p.individuals)/2)]:
+        if init_mut_prop:
+            num_mut_infs = int(max_inf*init_mut_prop)
+            p.inf[max_strn] = num_mut_infs
+            p.inf[max_strn.lower()] = max_inf - num_mut_infs
+            for ind in p.individuals[:num_mut_infs]:
                 ind.genotype_freqs[max_strn.upper()] = ind.pc
                 ind.genotype_freqs[max_strn.lower()] = 0
             shuffle(p.individuals)

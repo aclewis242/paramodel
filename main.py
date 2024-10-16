@@ -53,9 +53,10 @@ INDVS = [INDV_VEC, INDV_HST]
 
 D = allele(char='D')
 
-mut_adv = 1.05
-wld_adv = 1/mut_adv
-D.sel_advs = {'h1': mut_adv, 'vec': 1.0}
+all_adv = 1.05
+wld_adv = 1/all_adv
+mut_adv = all_adv
+D.sel_advs = {'h1': 1.0, 'vec': 1.0}
 # D.transm_probs = {'h1': 0.45, 'vec': 0.07} # pop ID is the source -- e.g. 'h1' means 'prob of transmission from h1'
 D.base_transm_probs = {'h1': hst_base_transm_p, 'vec': 0.021} # for wild-type allele
 D.transm_probs = D.base_transm_probs.copy()
@@ -68,7 +69,7 @@ PARAMS_1 = HST1
 PARAMS_2 = VEC
 
 def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=1200., nt: float=1., num_hist: int=0,
-        plot_res: bool=True, t_scale: float=5000., weight_infs: bool=True, do_mix_start: bool=False, do_freqs: bool=True):
+        plot_res: bool=True, t_scale: float=10000., weight_infs: bool=True, init_mut_prop: float=0.4, do_freqs: bool=True, fdir: str=''):
     '''
     Run the simulation.
 
@@ -86,9 +87,10 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
     exts_to_rm = ['dat', 'csv', 'txt']
     [[os.remove(file) for file in os.listdir() if file.endswith(f'.{ext}')] for ext in exts_to_rm]
     mkDir('hists', 'old images')
+    if fdir: os.makedirs(fdir, exist_ok=True)
     mkFile('inf_events_raw.dat', 'last_event.dat',)
     alleles = ALLELES
-    p0 *= p_fac
+    p0 = p_fac*p0
     t_max = t_scale
     for i in range(len(INDVS)):
         i_params = INDVS[i]
@@ -107,7 +109,7 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
     mdls = [m1, m2]
     t0 = time()
     ts, ps, times, pops, ps_unwgt, vpis, hpis, hists_v, hists_h, hist_tms = simShell(
-        t_max, mdls, nt=nt, alleles=alleles, weight_infs=weight_infs, do_mix_start=do_mix_start, num_hist=num_hist, do_freqs=do_freqs)
+        t_max, mdls, nt=nt, alleles=alleles, weight_infs=weight_infs, init_mut_prop=init_mut_prop, num_hist=num_hist, do_freqs=do_freqs)
     ex_tm = time() - t0
     # times_norm = normPercentList(times)
     print(f'\nExecution time: {roundNum(ex_tm, prec=3)}') # consider colored console output for readability
@@ -143,8 +145,8 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
         else:
             print(f'{tab}{type(lst).__name__}')
             return
-    output_fn = 'net_output.opt'
-    if output_fn in os.listdir(): os.remove(output_fn)
+    output_fn = f'{fdir}net_output.opt'
+    if os.path.exists(output_fn): os.remove(output_fn)
     f = open(output_fn, 'x')
     frac_to_take = 0.2
     for i in range(len(mdls)):
@@ -184,10 +186,9 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
         plt.legend()
         plt.xlabel('Simulation time')
         plt.ylabel('Population')
-        file_nm = fn(mdls[i].pn)
+        file_nm = f'{fdir}{fn(mdls[i].pn)}'
         plt.savefig(f'{file_nm}_freq.png')
         pd.DataFrame(csv_data).to_csv(f'{file_nm}.csv')
-        if plot_res: plt.show()
         plt.close()
         plt.stackplot(ts, *plt_datas, labels=stplt_labels, colors=stplt_colors)
         plt.title(f'{mdls[i].pn_full} population: proportion plot')
@@ -195,6 +196,7 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
         plt.ylabel('Relative proportion')
         plt.xlabel('Simulation time')
         plt.savefig(f'{file_nm}.png')
+        if plot_res: plt.show()
         plt.close()
     
     hists_with_pn = {'vec': hists_v, 'h1': hists_h}
@@ -222,6 +224,19 @@ def doTimeBreakdown():
     p_stats.sort_stats('cumtime')
     p_stats.print_stats()
 
+def doMultipleRuns(n: int=3, fdir: str=''):
+    if n == 1: run(); return
+    full_dir = f'full_outputs/{fdir}/'
+    for i in range(n):
+        run(fdir=f'{full_dir}{i+1}/')
+        if (i+1)%n: print('-'*20)
+
 if __name__ == '__main__':
-    run()
+    # run()
     # doTimeBreakdown()
+    adv_amt = str(mut_adv).split('.')[-1]
+    adv_tgt = 'host'
+    adv_type = 'sel'
+    num_runs = 1
+    fdir = f'{adv_type}adv_{adv_tgt}_{adv_amt}'
+    doMultipleRuns(n=num_runs, fdir='control')
