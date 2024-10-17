@@ -102,7 +102,7 @@ class SIR:
             num_failed_trans = 0
             max_loops = 10000
             indvs_lst = self.pop.individuals
-            while num_inf < rpt:
+            while num_inf < rpt: # loops until the required number of events have occurred, or until the hard limit has been reached (very unusual)
                 for indv in indvs_lst:
                     if not indv.genotype_freqs[self_sn]: continue
                     elif indv.correction(sn=self_sn):

@@ -54,10 +54,13 @@ INDVS = [INDV_VEC, INDV_HST]
 
 D = allele(char='D')
 
-all_adv = 1.05      # Selection advantage parameter
+all_adv = 1.5      # Selection advantage parameter
 wld_adv = 1/all_adv # Pro-wild allele (lowercase) selection advantage. Represented as a disadvantage for the mutated allele
 mut_adv = all_adv   # Pro-mutated allele (uppercase) selection advantage
-D.sel_advs = {'h1': 1.0, 'vec': 1.0} # Selection biases for mutated allele, relative to the wild allele (always 1.0)
+D.sel_advs = {'h1': 1.0, 'vec': mut_adv} # Selection biases for mutated allele, relative to the wild allele (always 1.0)
+
+NUM_RUNS = 5                        # Number of simulations to run
+FILE_DIR = 'seladv_vec_explicit'    # Leave blank for a procedural directory name
 
 # For transmission probabilities: the pop ID is the source -- i.e., 'vec': 0.021 means 2.1% transmission chance from vector to host
 D.base_transm_probs = {'h1': hst_base_transm_p, 'vec': 0.021} # for wild-type allele
@@ -73,7 +76,7 @@ PARAMS_1 = HST1
 PARAMS_2 = VEC
 
 def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=1200., nt: float=1., num_hist: int=0,
-        plot_res: bool=False, t_scale: float=500.,init_mut_prop: float=0.4, fdir: str=''):
+        plot_res: bool=True, t_scale: float=20000., init_mut_prop: float=0.5, fdir: str=''):
     '''
     Run the simulation.
 
@@ -230,17 +233,17 @@ def doTimeBreakdown(): # Runs the simulation with a profiler & processes the out
 def doMultipleRuns(n: int=3, fdir: str=''): # Run the simulation multiple times & save the results to a particular directory
     if n == 1: run(); return
     full_dir = f'full_outputs/{fdir}/'
-    for i in range(n):
-        run(fdir=f'{full_dir}{i+1}/')
-        if (i+1)%n: print('-'*20)
+    for i in range(1,n+1):
+        print(10*'-' + f' RUN {i} ' + 10*'-')
+        run(fdir=f'{full_dir}{i}/')
 
 if __name__ == '__main__':
     # run()
-    doTimeBreakdown()
+    # doTimeBreakdown()
 
-    # adv_amt = str(mut_adv).split('.')[-1]
-    # adv_tgt = 'host'
-    # adv_type = 'sel'
-    # num_runs = 1
-    # fdir = f'{adv_type}adv_{adv_tgt}_{adv_amt}'
-    # doMultipleRuns(n=num_runs, fdir='control')
+    adv_amt = str(mut_adv).split('.')[-1]
+    adv_tgt = 'host'
+    adv_type = 'sel'
+    fdir = f'{adv_type}adv_{adv_tgt}_{adv_amt}'
+    if FILE_DIR: fdir = FILE_DIR
+    doMultipleRuns(n=NUM_RUNS, fdir=fdir)

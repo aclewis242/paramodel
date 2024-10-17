@@ -10,4 +10,4 @@ hists*
 executable
 *.spec
 *.opt
-full_outputs
+full_outputs*

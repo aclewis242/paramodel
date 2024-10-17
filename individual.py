@@ -120,11 +120,13 @@ class individual:
         '''
         return [gt for gt in self.genotype_freqs if self.genotype_freqs[gt]]
     
-    def getGenotypeTransWeights_unwgt(self):
+    def getGenotypeTransWeights_unwgt(self, do_weights: bool=False):
         '''
-        Returns the genotypes' transmission weights.
+        Returns the genotypes' transmission weights, either unweighted (default) or weighted (`do_weights=True`) with respect to
+        transmission probabilities.
         '''
-        return [self.genotype_freqs[gt]/self.pc_flt for gt in self.genotype_freqs]
+        if do_weights: return normalise([self.genotype_freqs[gt]*self.all_transm_probs[gt[0]] for gt in self.genotype_freqs])
+        else: return [self.genotype_freqs[gt]/self.pc_flt for gt in self.genotype_freqs]
 
     def doesContactTransmit(self):
         '''
@@ -144,7 +146,7 @@ class individual:
         '''
         if do_test_contact:
             if not self.doesContactTransmit(): return dict.fromkeys(self.genotype_freqs, 0)
-        return dictify(self.genotype_freqs.keys(), self.rng.multinomial(pc_num, self.getGenotypeTransWeights_unwgt()))
+        return dictify(self.genotype_freqs.keys(), self.rng.multinomial(pc_num, self.getGenotypeTransWeights_unwgt(do_weights=True)))
     
     def infectSelf(self, pc_num: int, strn: str) -> list[str]:
         '''

@@ -15,6 +15,9 @@ def normalise_np(l: np.ndarray[float]):
     '''
     return l/sum(l)
 
+def normalise_dict(d: dict[str, float]):
+    return dictify(d.keys(), normalise(d.values()))
+
 def fn(f_n: str):
     '''
     Converts the given string into a proper file name.
