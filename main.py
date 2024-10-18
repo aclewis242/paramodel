@@ -76,6 +76,7 @@ FILE_DIR = 'test_opt'   # Directory to save files under, if multiple simulations
 INIT_MUT_PROP = 0.5     # Initial proportion of mutated alleles
 SIM_LENGTH = 500       # The length of the simulation (days)
 SHOW_RES = True         # Whether or not to show the results
+PROP_FOR_STAT = 0.2     # The proportion (from the end) of the results to use for statistics
 
 # For transmission probabilities: the pop ID is the source -- i.e., vec: 0.021 means 2.1% transmission chance from vector to host
 
@@ -182,7 +183,6 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
             print(f'{tab}{type(lst).__name__}')
             return
     
-    frac_to_take = 0.2                  # Fraction of the simulation to use when recording means (in net_output.opt)
     output_fn = f'{fdir}net_output.opt' # '.opt' is a plain text file. Only marked that way to keep the file clearing from catching it
     f = mkFile(output_fn)
     data_to_return: dict[str, list[float]] = {}
@@ -207,11 +207,9 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
                 plt_color = str2Color(gens[j])
                 stplt_colors += [plt_color]
                 csv_data[ns[j]] = plt_lst
-                data_to_keep = plt_lst[int(-frac_to_take*len(plt_lst)):]
-                data_mean = np.mean(data_to_keep)
-                data_stdev = np.std(data_to_keep)
-                data_to_return[ns[j]] = [data_mean, data_stdev]
-                writeOptLine(f, ns[j], data_mean, data_stdev)
+                mean_stdev = saveStats(plt_lst, frac_to_take=PROP_FOR_STAT)
+                data_to_return[ns[j]] = list(mean_stdev)
+                writeOptLine(f, ns[j], *mean_stdev)
                 plt.plot(ts, plt_data, label=ns[j], color=plt_color, alpha=pop2Alpha(ns[j]))
         f.write('\n')
 
@@ -268,6 +266,21 @@ def doTimeBreakdown(): # Runs the simulation with a profiler & processes the out
     p_stats.sort_stats('cumtime')
     p_stats.print_stats()
 
+def doOverallData(all_data: dict[str, list[list[float]]], full_dir: str=''):
+    # structure of all_data: row nm (I (..)) : [[mean 1, std 1], [mean 2, std 2], ...]
+    all_data: dict[str, list[list[float]]] = {k: transpose(all_data[k]) for k in all_data}
+    lengths = {'Vector': 6, 'Host': 5} # lengths of row names (ref. net_output.opt et al for examples)
+    f = mkFile(f'{full_dir}net_output_overall.opt')
+    f.write(f'\t----- OVERALL OUTPUT: {full_dir.split("/")[-2]} -----\n')
+    stat_lsts: dict[str, list[float]] = {k: [np.mean(v[0]), propUnc(np.std(v[0]), propUnc(*v[1]), do_div=False)] for k, v in all_data.items()}
+    for pn, lng in lengths.items():
+        keys = [k for k in all_data if len(k) == lng]
+        keys.sort(reverse=True)
+        f.write(f'\t{pn}:\n')
+        [writeOptLine(f, k, *stat_lsts[k]) for k in keys]
+        f.write('\n')
+    f.close()
+
 def doMultipleRuns(n: int=3, fdir: str=''): # Run the simulation multiple times & save the results to a particular directory
     if n == 1: run(); return
     full_dir = f'full_outputs/{fdir}/'
@@ -278,18 +291,28 @@ def doMultipleRuns(n: int=3, fdir: str=''): # Run the simulation multiple times 
         for k in ret_data:
             if k in all_data: all_data[k] += [ret_data[k]]
             else: all_data[k] = [ret_data[k]]
-    all_data: dict[str, list[list[float]]] = {k: transpose(all_data[k]) for k in all_data}
-    lengths = {'Vector': 6, 'Host': 5} # lengths of row names (ref. net_output.opt et al for examples)
-    f = mkFile(f'{full_dir}net_output_overall.opt')
-    f.write(f'\t----- OVERALL OUTPUT: {fdir} -----\n')
-    stat_lsts: dict[str, list[float]] = {k: [np.mean(v[0]), propUnc(np.std(v[0]), propUnc(*v[1]), do_div=False)] for k, v in all_data.items()}
-    for pn, lng in lengths.items():
-        keys = [k for k in all_data if len(k) == lng]
-        keys.sort(reverse=True)
-        f.write(f'\t{pn}:\n')
-        [writeOptLine(f, k, *stat_lsts[k]) for k in keys]
-        f.write('\n')
-    f.close()
+    doOverallData(all_data, full_dir)
+
+def doRetroStats(fdir: str):
+    full_dir = f'full_outputs/{fdir}/'
+    csv_names = {'Vector': VEC, 'Host': H1}
+    bad_cols = ['Unnamed', 'times']
+    all_data: dict[str, list[list[float]]] = {}
+    for r_dir in os.listdir(full_dir):
+        full_r_dir = f'{full_dir}{r_dir}/'
+        if not os.listdir(full_r_dir): continue
+        for csv_nm in csv_names.values():
+            csv_data: dict[str, list[float]] = readCSVData(f'{full_r_dir}{csv_nm}.csv')
+            real_bad_cols: list[str] = []
+            for k in csv_data:
+                for bad_col in bad_cols:
+                    if bad_col in k: real_bad_cols += [k]
+            for rbc in real_bad_cols: del csv_data[rbc]
+            for k, v in csv_data.items():
+                stats_to_add = list(saveStats(v, frac_to_take=PROP_FOR_STAT))
+                if k in all_data: all_data[k] += [stats_to_add]
+                else: all_data[k] = [stats_to_add]
+    doOverallData(all_data, full_dir)
 
 if __name__ == '__main__':
     # run()
@@ -298,3 +321,5 @@ if __name__ == '__main__':
     fdir = 'temp_dir'
     if FILE_DIR: fdir = FILE_DIR
     doMultipleRuns(n=NUM_RUNS, fdir=fdir)
+
+    # doRetroStats('seladv_vec_invasion')

@@ -1,5 +1,6 @@
 from typing import TextIO as ftype
 import numpy as np
+import pandas as pd
 import os
 
 def normalise(l: list[float]):
@@ -146,3 +147,16 @@ def writeOptLine(f: ftype, name: str, mean_num: float, std_num: float):
     Writes the given data (`mean_num`, `std_num`) to file `f` with row name `name`.
     '''
     f.write(f'{name}:\t{roundAndSN(mean_num)}\t+- {roundAndSN(std_num)}\n')
+
+def readCSVData(csv_path: str):
+    '''
+    Returns data from a CSV file as a dict of column header:value list.
+    '''
+    return {col_header: list(col_data) for col_header, col_data in pd.read_csv(csv_path).items()}
+
+def saveStats(lst: list[float], frac_to_take: float=0.2) -> tuple[float, float]:
+    '''
+    Gets the mean & standard deviation of the last `frac_to_take` proportion of its elements. Returned in that order.
+    '''
+    data_to_keep = lst[int(-frac_to_take*len(lst)):]
+    return np.mean(data_to_keep), np.std(data_to_keep)
