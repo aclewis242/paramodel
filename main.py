@@ -8,21 +8,24 @@ import os
 import cProfile
 import pstats
 
+H1 = 'h1'
+VEC = 'vec'
+
 # Rates are in terms of '# events expected per day'
-VEC = {             # Parameters for transmission vector behavior (mosquito)
+VCT = {             # Parameters for transmission vector behavior (mosquito)
     'bd': 0.071,    # Birth/death rate
     'ir': 0.,       # Infection rate between individuals. Largely obsolete for a vector-based model
     'rr': 0,        # Recovery rate
     'wi': 0.,       # Waning immunity rate
-    'pn': 'vec',            # Short population name, used in console output & within the code
+    'pn': VEC,              # Short population name, used in console output & within the code
     'pn_full': 'Vector',    # Full population name, used in graph titles
     'is_vector': True,      # Whether or not the population is a disease vector
 }
 
-tau = 90                    # Average duration of immunity (days)
-hst_base_transm_p = 0.11    # Probability of contact resulting in a host-vector transmission
+hst_transm_p_wi = 0.11      # The base transmission probability for hosts, only used here to come up with wi_rate
 ct_rate = 0.28              # Contact rate (average bites per day)
-h_ir = ct_rate*hst_base_transm_p                            # Infection rate (only used in the context of wi_rate)
+tau = 90                    # Average duration of immunity (days)
+h_ir = ct_rate*hst_transm_p_wi                              # Infection rate (only used in the context of wi_rate)
 wi_rate = h_ir*np.exp(-h_ir*tau)/(1 - np.exp(-h_ir*tau))    # Waning immunity rate
 
 HST1 = {
@@ -30,7 +33,7 @@ HST1 = {
     'ir': 0.,
     'rr': 2.19e-3,
     'wi': wi_rate,
-    'pn': 'h1',
+    'pn': H1,
     'pn_full': 'Host',
 }
 
@@ -54,29 +57,58 @@ INDVS = [INDV_VEC, INDV_HST]
 
 D = allele(char='D')
 
-all_adv = 1.5      # Selection advantage parameter
-wld_adv = 1/all_adv # Pro-wild allele (lowercase) selection advantage. Represented as a disadvantage for the mutated allele
-mut_adv = all_adv   # Pro-mutated allele (uppercase) selection advantage
-D.sel_advs = {'h1': 1.0, 'vec': mut_adv} # Selection biases for mutated allele, relative to the wild allele (always 1.0)
+####################################
+### ----- BEGIN USER INPUT ----- ###
+####################################
 
-NUM_RUNS = 5                        # Number of simulations to run
-FILE_DIR = 'seladv_vec_explicit'    # Leave blank for a procedural directory name
+# Selection biases for mutated allele, relative to the wild allele (always 1.0)
+control_sa = {H1: 1.0, VEC: 1.0}        # Used for the control case
+hst_sa_inv = {H1: 1.05, VEC: 1.0}       # Used for the invasion example of the host selection advantage case
+hst_sa_exp = {H1: 1.005, VEC: 1.0}      # Used for the host selection advantage case (quantitative)
+vec_sa_exp = {H1: 1.0, VEC: 1.5}        # Used for the vector selection advantage case
+hv_sel_ant = {H1: 1.005, VEC: 1/1.5}    # Used for the host-vector antagonistic selection case
+vh_sel_ant = {H1: 1/1.005, VEC: 1.5}    # Used for the vector-host antagonistic selection case
 
-# For transmission probabilities: the pop ID is the source -- i.e., 'vec': 0.021 means 2.1% transmission chance from vector to host
-D.base_transm_probs = {'h1': hst_base_transm_p, 'vec': 0.021} # for wild-type allele
+D.sel_advs = control_sa
 
-# Switch between the two lines below to give transmission advantages/disadvantages
-D.transm_probs = D.base_transm_probs.copy()
-# D.transm_probs = {'h1': hst_base_transm_p, 'vec': 0.07}
+NUM_RUNS = 3            # Number of simulations to run
+FILE_DIR = 'test_opt'   # Directory to save files under, if multiple simulations are being run
+INIT_MUT_PROP = 0.5     # Initial proportion of mutated alleles
+SIM_LENGTH = 500       # The length of the simulation (days)
+SHOW_RES = True         # Whether or not to show the results
+
+# For transmission probabilities: the pop ID is the source -- i.e., vec: 0.021 means 2.1% transmission chance from vector to host
+
+hst_base_transm_p = 0.11    # Probability of contact resulting in a host-vector transmission
+hst_adv_transm_p = 0.12     # Advantageous transmission probability for hosts
+hst_dis_transm_p = 0.10     # Disadvantageous transmission probability for hosts
+
+vec_base_transm_p = 0.021   # Probability of contact resulting in a vector-host transmission
+vec_adv_transm_p = 0.023    # Advantageous transmission probability for vectors
+vec_dis_transm_p = 0.019    # Disadvantageous transmission probability for vectors
+
+D.base_transm_probs = {H1: hst_base_transm_p, VEC: vec_base_transm_p} # for wild-type allele
+
+base_ta = D.base_transm_probs.copy()                    # No advantages
+hst_ta = {H1: hst_adv_transm_p, VEC: vec_base_transm_p} # Host transmission advantage
+vec_ta = {H1: hst_base_transm_p, VEC: vec_adv_transm_p} # Vector transmission advantage
+hv_at = {H1: hst_adv_transm_p, VEC: vec_dis_transm_p}   # Host-vector antagonistic transmission
+vh_at = {H1: hst_dis_transm_p, VEC: vec_adv_transm_p}   # Vector-host antagonistic transmission
+
+D.transm_probs = hst_ta
+
+##################################
+### ----- END USER INPUT ----- ###
+##################################
 
 ALLELES = [D] # Do NOT have more than one allele here -- the simulation has been optimised for the single-locus case.
               # Adding more WILL break it!
 
 PARAMS_1 = HST1
-PARAMS_2 = VEC
+PARAMS_2 = VCT
 
 def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=1200., nt: float=1., num_hist: int=0,
-        plot_res: bool=True, t_scale: float=20000., init_mut_prop: float=0.5, fdir: str=''):
+        plot_res: bool=SHOW_RES, t_scale: float=SIM_LENGTH, init_mut_prop: float=INIT_MUT_PROP, fdir: str=''):
     '''
     Run the simulation.
 
@@ -94,7 +126,7 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
     [[os.remove(file) for file in os.listdir() if file.endswith(f'.{ext}')] for ext in exts_to_rm]
     mkDir('hists', 'old images')
     if fdir: os.makedirs(fdir, exist_ok=True)
-    mkFile('inf_events_raw.dat', 'last_event.dat',)
+    mkFilePath('inf_events_raw.dat', 'last_event.dat',)
     alleles = ALLELES
     p0 = p_fac*p0
     t_max = t_scale
@@ -152,8 +184,8 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
     
     frac_to_take = 0.2                  # Fraction of the simulation to use when recording means (in net_output.opt)
     output_fn = f'{fdir}net_output.opt' # '.opt' is a plain text file. Only marked that way to keep the file clearing from catching it
-    if os.path.exists(output_fn): os.remove(output_fn)
-    f = open(output_fn, 'x')
+    f = mkFile(output_fn)
+    data_to_return: dict[str, list[float]] = {}
     for i in range(len(mdls)):
         ns = [''.join(n.split('.')) for n in pops[i].getAllPopNms()]
         f.write(f'\t{mdls[i].pn_full}:\n')
@@ -176,7 +208,10 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
                 stplt_colors += [plt_color]
                 csv_data[ns[j]] = plt_lst
                 data_to_keep = plt_lst[int(-frac_to_take*len(plt_lst)):]
-                f.write(f'{ns[j]}:\t{roundAndSN(np.mean(data_to_keep))}\t+- {roundAndSN(np.std(data_to_keep))}\n')
+                data_mean = np.mean(data_to_keep)
+                data_stdev = np.std(data_to_keep)
+                data_to_return[ns[j]] = [data_mean, data_stdev]
+                writeOptLine(f, ns[j], data_mean, data_stdev)
                 plt.plot(ts, plt_data, label=ns[j], color=plt_color, alpha=pop2Alpha(ns[j]))
         f.write('\n')
 
@@ -205,7 +240,7 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
         plt.close()
     
     # Save histograms
-    hists_with_pn = {'vec': hists_v, 'h1': hists_h}
+    hists_with_pn = {VEC: hists_v, H1: hists_h}
     hist_max = p0[0][1]
     for hpn in hists_with_pn:
         hists_2_p = hists_with_pn[hpn]
@@ -216,9 +251,12 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
             plt.title(f'Population {hpn}, time {roundNum(tm)}')
             plt.xlabel('Mutated (capital) allele frequencies')
             plt.ylabel('Individual count')
-            if hpn == 'h1': plt.ylim(top=hist_max)
+            if hpn == H1: plt.ylim(top=hist_max)
             plt.savefig(f'hists/{hpn}_{i}.png')
             plt.close()
+    
+    f.close()
+    return data_to_return
 
 def doTimeBreakdown(): # Runs the simulation with a profiler & processes the output accordingly
     time_output_fn = 'time_breakdown.dat'
@@ -233,17 +271,30 @@ def doTimeBreakdown(): # Runs the simulation with a profiler & processes the out
 def doMultipleRuns(n: int=3, fdir: str=''): # Run the simulation multiple times & save the results to a particular directory
     if n == 1: run(); return
     full_dir = f'full_outputs/{fdir}/'
+    all_data: dict[str, list[list[float]]] = {}
     for i in range(1,n+1):
         print(10*'-' + f' RUN {i} ' + 10*'-')
-        run(fdir=f'{full_dir}{i}/')
+        ret_data = run(fdir=f'{full_dir}{i}/')
+        for k in ret_data:
+            if k in all_data: all_data[k] += [ret_data[k]]
+            else: all_data[k] = [ret_data[k]]
+    all_data: dict[str, list[list[float]]] = {k: transpose(all_data[k]) for k in all_data}
+    lengths = {'Vector': 6, 'Host': 5} # lengths of row names (ref. net_output.opt et al for examples)
+    f = mkFile(f'{full_dir}net_output_overall.opt')
+    f.write(f'\t----- OVERALL OUTPUT: {fdir} -----\n')
+    stat_lsts: dict[str, list[float]] = {k: [np.mean(v[0]), propUnc(np.std(v[0]), propUnc(*v[1]), do_div=False)] for k, v in all_data.items()}
+    for pn, lng in lengths.items():
+        keys = [k for k in all_data if len(k) == lng]
+        keys.sort(reverse=True)
+        f.write(f'\t{pn}:\n')
+        [writeOptLine(f, k, *stat_lsts[k]) for k in keys]
+        f.write('\n')
+    f.close()
 
 if __name__ == '__main__':
     # run()
     # doTimeBreakdown()
 
-    adv_amt = str(mut_adv).split('.')[-1]
-    adv_tgt = 'host'
-    adv_type = 'sel'
-    fdir = f'{adv_type}adv_{adv_tgt}_{adv_amt}'
+    fdir = 'temp_dir'
     if FILE_DIR: fdir = FILE_DIR
     doMultipleRuns(n=NUM_RUNS, fdir=fdir)

@@ -1,3 +1,4 @@
+from typing import TextIO as ftype
 import numpy as np
 import os
 
@@ -112,10 +113,36 @@ def mkDir(*args):
     '''
     [os.mkdir(arg) for arg in args if arg not in os.listdir()]
 
-def mkFile(*args):
+def mkFilePath(*args):
     '''
-    Makes a new file with the given name, if it does not exist already. Takes an arbitrary number of arguments.
+    Makes a new file at the given path, if it does not exist already. Takes an arbitrary number of arguments.
     '''
     for a in args:
-        f = open(a, 'x')
-        f.close()
+        if a not in os.listdir(): f = open(a, 'x'); f.close()
+
+def mkFile(f_path: str):
+    '''
+    Makes and returns a new file at the given path, clearing it if it already exists.
+    '''
+    if os.path.exists(f_path): os.remove(f_path)
+    return open(f_path, 'x')
+
+def transpose(l: list[list]):
+    '''
+    Transposes the given two-dimensional list. Must be rectangular; that is, all the second-order lists must be equal in length.
+    '''
+    return [list(l2) for l2 in zip(*l)]
+
+def propUnc(*args, do_div: bool=True):
+    '''
+    Propagates uncertainty for mean calculations.
+    '''
+    div_fac = 1
+    if do_div: div_fac = len(args)
+    return np.sqrt(sum([(std/div_fac)**2 for std in args]))
+
+def writeOptLine(f: ftype, name: str, mean_num: float, std_num: float):
+    '''
+    Writes the given data (`mean_num`, `std_num`) to file `f` with row name `name`.
+    '''
+    f.write(f'{name}:\t{roundAndSN(mean_num)}\t+- {roundAndSN(std_num)}\n')
