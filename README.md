@@ -13,6 +13,7 @@ The code can be run by typing `python main.py` into a command line terminal with
 - `time`
 - `cProfile`
 - `pstats`
+
 If any of those last three packages -- `time`, `cProfile`, and `pstats` -- are unavailable for whatever reason, they can be removed relatively easily if necessary. Removing the others would be variously difficult to outright impossible. Altering the imports is, however, very much not recommended.
 
 ### Output and meanings
@@ -29,7 +30,7 @@ If `pyinstaller` is available, `compile.ps1` can be run in a PowerShell terminal
 - `gen_funcs.py`: A library of functions semantically oriented around genetics.
 - `individual.py`: The `individual` class representing an infected host or vector and managing its internal parasite behavior.
 - `main.py`: The main file of the code. This is the only file one needs to look at or modify in order to run different simulations themselves.
-- `model.py`: The `SIR` class. Manages the behavior of a particular strain (i.e. genotype) in a particular population. With the standard setup, that means **D** and **d** in the host and **DD**, **Dd**, and **dd** in the vector.
+- `model.py`: The `SIR` class. Manages the behavior of a particular strain (i.e. genotype) in a particular population. With the standard setup, that means **D**, **d** in the host and **DD**, **Dd**, **dd** in the vector.
 - `population.py`: The `population` class. Handles host and vector populations as a whole, not just their strains of infection.
 - `sim_lib.py`: A library containing the shell of the simulation. It translates the given parameters into the format required of the simulation, then runs it over time.
 
