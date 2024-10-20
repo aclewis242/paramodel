@@ -4,159 +4,169 @@ import pandas as pd
 import os
 
 def normalise(l: list[float]):
-    '''
-    Normalises the given list such that its sum is 1.
-    '''
-    l_sum = sum(l)
-    if not l_sum: return l
-    return [l_el/l_sum for l_el in l]
+	'''
+	Normalises the given list such that its sum is 1.
+	'''
+	l_sum = sum(l)
+	if not l_sum: return l
+	return [l_el/l_sum for l_el in l]
 
 def normalise_np(l: np.ndarray[float]):
-    '''
-    Normalises the given NumPy array.
-    '''
-    return l/sum(l)
+	'''
+	Normalises the given NumPy array.
+	'''
+	return l/sum(l)
 
 def normalise_dict(d: dict[str, float]):
-    return dictify(d.keys(), normalise(d.values()))
+	return dictify(d.keys(), normalise(d.values()))
 
 def fn(f_n: str):
-    '''
-    Converts the given string into a proper file name.
-    '''
-    return f_n.lower().replace(' ', '_')
+	'''
+	Converts the given string into a proper file name.
+	'''
+	return f_n.lower().replace(' ', '_')
 
 def float2SN(f: float, p: int=2, do_sci: bool=False):
-    '''
-    Converts the given number to scientific notation with the given precision.
+	'''
+	Converts the given number to scientific notation with the given precision.
 
-    ### Parameters
-    - `f`: The number in question.
-    - `p`: The number (int) of digits of precision (past the decimal point). For example: f=1302, p=2 -> 1.30e3.
-    - `do_sci`: Whether or not to force scientific notation (e.g. 13 -> 1.3e1).
-    '''
-    if ((f < 10**(p+1) and f > 10**(-p)) or not f) and not do_sci: return f'{f}'
-    else:
-        pwr = np.floor(np.log10(f))
-        return f'{int(f/(10**(pwr-p)))/(10**p)}e{int(pwr)}'
+	### Parameters
+	- `f`: The number in question.
+	- `p`: The number (int) of digits of precision (past the decimal point). For example: f=1302, p=2 -> 1.30e3.
+	- `do_sci`: Whether or not to force scientific notation (e.g. 13 -> 1.3e1).
+	'''
+	if ((f < 10**(p+1) and f > 10**(-p)) or not f) and not do_sci: return f'{f}'
+	else:
+		pwr = np.floor(np.log10(f))
+		return f'{int(f/(10**(pwr-p)))/(10**p)}e{int(pwr)}'
 
 def roundNum(f: float, prec: int=2) -> float:
-    '''
-    Rounds the given number to the given number of decimal points.
+	'''
+	Rounds the given number to the given number of decimal points.
 
-    ### Parameters
-    - `f`: The number in question.
-    - `prec`: The number of decimal points to round it to.
-    '''
-    return round(f*(10**prec))/(10**prec)
+	### Parameters
+	- `f`: The number in question.
+	- `prec`: The number of decimal points to round it to.
+	'''
+	return round(f*(10**prec))/(10**prec)
 
 def roundAndSN(f: float, u_lim: int=4, l_lim: int=2, prec: int=3):
-    '''
-    General-purpose number processing method. Will return a number with the given precision if it falls outside the given limits.
+	'''
+	General-purpose number processing method. Will return a number with the given precision if it falls outside the given limits.
 
-    ### Parameters
-    - `f`: The number in question.
-    - `u_lim`: The power of 10 to use as an upper limit for scientific notation.
-    - `l_lim`: The power of 10 to use as a lower limit for scientific notation. Positive means negative (i.e. l_lim = 2 means a limit of 0.01.)
-    '''
-    if (f < 10**u_lim and f > 10**(-l_lim+1)) or not f: return f'{roundNum(f, prec=prec)}'
-    else: return float2SN(f, p=prec, do_sci=True)
+	### Parameters
+	- `f`: The number in question.
+	- `u_lim`: The power of 10 to use as an upper limit for scientific notation.
+	- `l_lim`: The power of 10 to use as a lower limit for scientific notation. Positive means negative (i.e. l_lim = 2 means a limit of 0.01.)
+	'''
+	if (f < 10**u_lim and f > 10**(-l_lim+1)) or not f: return f'{roundNum(f, prec=prec)}'
+	else: return float2SN(f, p=prec, do_sci=True)
 
 def normPercentList(l: list[float]) -> list[float]:
-    '''
-    Turns the given list into a normalised list of percentages.
-    '''
-    return list(100*normalise_np(np.array(l)))
+	'''
+	Turns the given list into a normalised list of percentages.
+	'''
+	return list(100*normalise_np(np.array(l)))
 
 def printFloatList(l: list[float]):
-    '''
-    Prints the items of a list of floats (rounded to 2 decimal places), as well as their indices.
-    '''
-    [print(f'{i}:\t{roundNum(l[i])}') for i in range(len(l))]
+	'''
+	Prints the items of a list of floats (rounded to 2 decimal places), as well as their indices.
+	'''
+	[print(f'{i}:\t{roundNum(l[i])}') for i in range(len(l))]
 
 def printMat(m: list[list]):
-    '''
-    Prints the given 2d matrix (usually of transition probabilities, though not necessarily) in an easier-to-read fashion.
-    '''
-    rv = '\n'.join(['\t'.join([str(int(100*i)) for i in j]) for j in m])
-    print(rv)
-    return rv
+	'''
+	Prints the given 2d matrix (usually of transition probabilities, though not necessarily) in an easier-to-read fashion.
+	'''
+	rv = '\n'.join(['\t'.join([str(int(100*i)) for i in j]) for j in m])
+	print(rv)
+	return rv
 
 def hapify(g: str):
-    '''
-    Turns the given genotype into its haploid equivalent (e.g., AA.Bb.cc becomes A.B.c). Haploid genotypes are unaffected.
-    '''
-    return '.'.join([s[0] for s in g.split('.')])
+	'''
+	Turns the given genotype into its haploid equivalent (e.g., AA.Bb.cc becomes A.B.c). Haploid genotypes are unaffected.
+	'''
+	return '.'.join([s[0] for s in g.split('.')])
 
 def dipify(g: str):
-    '''
-    Turns the given genotype into its diploid equivalent (e.g., A.B.c becomes AA.BB.cc). Diploid genotypes are unaffected.
-    '''
-    return '.'.join([''.join(2*[s])[:2] for s in g.split('.')])
+	'''
+	Turns the given genotype into its diploid equivalent (e.g., A.B.c becomes AA.BB.cc). Diploid genotypes are unaffected.
+	'''
+	return '.'.join([''.join(2*[s])[:2] for s in g.split('.')])
 
 def listify(a) -> list:
-    '''
-    Produces a deep copy of type list from a given multi-dimensional list (or NumPy array). If the elements of the list are complex
-    types, then these objects will still be the same in memory (the deep copy only extends to the lists themselves).
-    '''
-    if (type(a) is np.ndarray) or (type(a) is list): return [listify(el) for el in a]
-    else: return a
+	'''
+	Produces a deep copy of type list from a given multi-dimensional list (or NumPy array). If the elements of the list are complex
+	types, then these objects will still be the same in memory (the deep copy only extends to the lists themselves).
+	'''
+	if (type(a) is np.ndarray) or (type(a) is list): return [listify(el) for el in a]
+	else: return a
 
 def dictify(ks: list, vs: list):
-    '''
-    Turns the given lists of keys and values into a dict. These should be the same length!
-    '''
-    return {k: v for k, v in zip(ks, vs)}
+	'''
+	Turns the given lists of keys and values into a dict. These should be the same length!
+	'''
+	return {k: v for k, v in zip(ks, vs)}
 
 def mkDir(*args):
-    '''
-    Makes a new directory with the given name, if it does not exist already. Takes an arbitrary number of arguments.
-    '''
-    [os.mkdir(arg) for arg in args if arg not in os.listdir()]
+	'''
+	Makes a new directory with the given name, if it does not exist already. Takes an arbitrary number of arguments.
+	'''
+	[os.mkdir(arg) for arg in args if arg not in os.listdir()]
 
 def mkFilePath(*args):
-    '''
-    Makes a new file at the given path, if it does not exist already. Takes an arbitrary number of arguments.
-    '''
-    for a in args:
-        if a not in os.listdir(): f = open(a, 'x'); f.close()
+	'''
+	Makes a new file at the given path, if it does not exist already. Takes an arbitrary number of arguments.
+	'''
+	for a in args:
+		if a not in os.listdir(): f = open(a, 'x'); f.close()
 
 def mkFile(f_path: str):
-    '''
-    Makes and returns a new file at the given path, clearing it if it already exists.
-    '''
-    if os.path.exists(f_path): os.remove(f_path)
-    return open(f_path, 'x')
+	'''
+	Makes and returns a new file at the given path, clearing it if it already exists.
+	'''
+	if os.path.exists(f_path): os.remove(f_path)
+	return open(f_path, 'x')
 
 def transpose(l: list[list]):
-    '''
-    Transposes the given two-dimensional list. Must be rectangular; that is, all the second-order lists must be equal in length.
-    '''
-    return [list(l2) for l2 in zip(*l)]
+	'''
+	Transposes the given two-dimensional list. Must be rectangular; that is, all the second-order lists must be equal in length.
+	'''
+	return [list(l2) for l2 in zip(*l)]
 
 def propUnc(*args, do_div: bool=True):
-    '''
-    Propagates uncertainty for mean calculations.
-    '''
-    div_fac = 1
-    if do_div: div_fac = len(args)
-    return np.sqrt(sum([(std/div_fac)**2 for std in args]))
+	'''
+	Propagates uncertainty for mean calculations.
+	'''
+	div_fac = 1
+	if do_div: div_fac = len(args)
+	return np.sqrt(sum([(std/div_fac)**2 for std in args]))
 
 def writeOptLine(f: ftype, name: str, mean_num: float, std_num: float):
-    '''
-    Writes the given data (`mean_num`, `std_num`) to file `f` with row name `name`.
-    '''
-    f.write(f'{name}:\t{roundAndSN(mean_num)}\t+- {roundAndSN(std_num)}\n')
+	'''
+	Writes the given data (`mean_num`, `std_num`) to file `f` with row name `name`.
+	'''
+	f.write(f'{name}:\t{roundAndSN(mean_num)}\t+- {roundAndSN(std_num)}\n')
 
 def readCSVData(csv_path: str):
-    '''
-    Returns data from a CSV file as a dict of column header:value list.
-    '''
-    return {col_header: list(col_data) for col_header, col_data in pd.read_csv(csv_path).items()}
+	'''
+	Returns data from a CSV file as a dict of column header:value list.
+	'''
+	return {col_header: list(col_data) for col_header, col_data in pd.read_csv(csv_path).items()}
 
 def saveStats(lst: list[float], frac_to_take: float=0.2) -> tuple[float, float]:
-    '''
-    Gets the mean & standard deviation of the last `frac_to_take` proportion of its elements. Returned in that order.
-    '''
-    data_to_keep = lst[int(-frac_to_take*len(lst)):]
-    return np.mean(data_to_keep), np.std(data_to_keep)
+	'''
+	Gets the mean & standard deviation of the last `frac_to_take` proportion of its elements. Returned in that order.
+	'''
+	data_to_keep = lst[int(-frac_to_take*len(lst)):]
+	return np.mean(data_to_keep), np.std(data_to_keep)
+
+def getRange(base_val: float, dim_val: float, num_els: int=5):
+	u_lim = base_val + dim_val
+	l_lim = base_val - dim_val
+	step_size = (u_lim - l_lim)/(num_els-1)
+	return [l_lim + i*step_size for i in range(num_els)]
+
+def makeCoordDF(c_dict: dict[tuple[float, float], float]):
+	df_data = [(y, x, z) for (x, y), z in c_dict.items()]
+	return pd.DataFrame(df_data, columns=['y', 'x', 'z']).pivot(index='y', columns='x', values='z')
