@@ -1,7 +1,13 @@
+'''
+Main file for the host-vector parasite & SIRS model.
+'''
+
 from sim_lib import *
 from allele import *
 from color import *
+from data_lib import *
 from time import time
+from scipy.interpolate import griddata
 import matplotlib.pyplot as plt
 import pandas as pd
 import os
@@ -12,6 +18,7 @@ import colorist
 H1 = 'h1'
 VEC = 'vec'
 FULL_NMS = {'Vector': VEC, 'Host': H1}
+FULL_NMS_R = {VEC: 'Vector', H1: 'Host'}
 
 # Rates are in terms of '# events expected per day'
 VCT = {				# Parameters for transmission vector behavior (mosquito)
@@ -69,48 +76,45 @@ hst_sa_inv = {H1: 1.05, VEC: 1.0}		# Used for the invasion example of the host s
 hst_sa_exp = {H1: 1.005, VEC: 1.0}		# Used for the host selection advantage case (quantitative)
 vec_sa_exp = {H1: 1.0, VEC: 1.5}		# Used for the vector selection advantage case
 
-hv_sel_ant = {H1: 1.01, VEC: 1/1.1}		# Used for the host-vector antagonistic selection case
-# vh_sel_ant = {H1: 1/1.005, VEC: 1.5}	# Used for the vector-host antagonistic selection case
+asel_dims = {H1: 0.005, VEC: 0.4}		# Range to use in each direction around the base value for antagonistic
 
-asel_dims = {H1: 0.01, VEC: 0.1}
+asel_test = {H1: 1.001, VEC: 0.3}
 
-D.sel_advs = hv_sel_ant
+D.sel_advs = asel_test		# Choose the parameter set to use here (except antagonistic, which is further below)
 
 # For transmission probabilities: the pop ID is the source -- i.e., vec: 0.021 means 2.1% transmission chance from vector to host
 
 hst_base_transm_p = 0.11	# Probability of contact resulting in a host-vector transmission
 hst_adv_transm_p = 0.113	# Advantageous transmission probability for hosts
-hst_dis_transm_p = 0.107	# Disadvantageous transmission probability for hosts
 
 vec_base_transm_p = 0.021	# Probability of contact resulting in a vector-host transmission
 vec_adv_transm_p = 0.022	# Advantageous transmission probability for vectors
-vec_dis_transm_p = 0.020	# Disadvantageous transmission probability for vectors
 
 D.base_transm_probs = {H1: hst_base_transm_p, VEC: vec_base_transm_p} # for wild-type allele
 
 base_ta = D.base_transm_probs.copy()					# No advantages
 hst_ta = {H1: hst_adv_transm_p, VEC: vec_base_transm_p} # Host transmission advantage
 vec_ta = {H1: hst_base_transm_p, VEC: vec_adv_transm_p} # Vector transmission advantage
-hv_at = {H1: hst_adv_transm_p, VEC: vec_dis_transm_p}	# Host-vector antagonistic transmission
-vh_at = {H1: hst_dis_transm_p, VEC: vec_adv_transm_p}	# Vector-host antagonistic transmission
 
-atrans_dims = {H1: 0.003, VEC: 0.001}
+atrans_dims = {H1: 0.003, VEC: 0.001}	# Range in each direction to use around the base value
 
-D.transm_probs = base_ta
+D.transm_probs = base_ta	# Choose the parameter set to use here (except antagonistic, which is below)
 
 antag_types = {'sel': asel_dims, 'trans': atrans_dims}
 
 NUM_RUNS = 1				# Number of simulations to run
 FILE_DIR = 'transadv_vec_l'	# Directory to save files under, if multiple simulations are being run
-INIT_MUT_PROP = 0.5			# Initial proportion of mutated alleles
-SIM_LENGTH = 1000			# The length of the simulation (days)
+INIT_MUT_PROP = 1.			# Initial proportion of mutated alleles
+SIM_LENGTH = 10000			# The length of the simulation (days)
 SHOW_RES = False 			# Whether or not to show the results
 PROP_FOR_STATS = 0.2		# The proportion (from the end) of the results to use for statistics
+NUM_HISTS = 0				# Set to 0 for no histograms
 
-ANTAG_TYPE = 'sel'	# 'sel' | 'trans'
-CONTOUR_DENSITY = 4	# performs (num)^2 rounds
-DO_ANTAG = True
-DO_RETRO_CONTOUR = True
+DO_ANTAG = False 			# Whether or not to do antagonistic parameters
+ANTAG_TYPE = 'sel'			# 'sel' | 'trans' (for antagonistic selection and transmission respectively)
+CONTOUR_DENSITY = 11 		# Performs (num)^2 rounds
+DO_RETRO_CONTOUR = False 	# Whether or not to generate the contour plot from existing data. Will not generate anything new
+DO_EXTEND = True			# Whether or not to extend preexisting data. Will either generate or read data, depending on what's available
 
 ##################################
 ### ----- END USER INPUT ----- ###
@@ -122,6 +126,7 @@ USER_INPTS = {'Initial mutated proportion': INIT_MUT_PROP,
 			  'Selection advantages': D.sel_advs,
 			  'Transmission advantages': D.transm_probs}
 
+SHOW_CONTOUR = SHOW_RES
 if DO_ANTAG: SHOW_RES = False
 
 ALLELES = [D] # Do NOT have more than one allele here -- the simulation has been optimised for the single-locus case.
@@ -130,10 +135,10 @@ ALLELES = [D] # Do NOT have more than one allele here -- the simulation has been
 PARAMS_1 = HST1
 PARAMS_2 = VCT
 
-def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=1200., nt: float=1., num_hist: int=0,
+def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fac: float=1200., nt: float=1., num_hist: int=NUM_HISTS,
 		plot_res: bool=SHOW_RES, t_scale: float=SIM_LENGTH, init_mut_prop: float=INIT_MUT_PROP, fdir: str=''):
 	'''
-	Run the simulation.
+	Run the simulation. Keyword arguments should be changed in the "user input" section of the main file (above this method).
 
 	### Parameters
 	- `p0`: The initial population ratios (S, I, R) as a NumPy array of 3-element NumPy arrays.
@@ -144,6 +149,9 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
 	- `t_scale`: The number of days to run the simulation for.
 	- `init_mut_prop`: The initial fraction of mutated (uppercase) alleles. Must be between 0 and 1.
 	- `fdir`: The directory to save the results under.
+
+	### Returns
+	- `data_to_return`: dict of infected population name to a two-element list containing the mean (0) and standard deviation (1) of the data.
 	'''
 	exts_to_rm = ['dat', 'csv', 'txt']
 	[[os.remove(file) for file in os.listdir() if file.endswith(f'.{ext}')] for ext in exts_to_rm]
@@ -244,7 +252,6 @@ def run(p0: np.ndarray=np.array([[20, 1, 0], [21, 0, 0]], dtype='float64'), p_fa
 		plt.xlabel('Simulation time')
 		plt.ylabel('Population')
 		file_nm = f'{fdir}{fn(mdls[i].pn)}'
-		plt.savefig(f'{file_nm}_freq.png')
 		plt.close()
 
 		pd.DataFrame(csv_data).to_csv(f'{file_nm}.csv')
@@ -289,7 +296,18 @@ def doTimeBreakdown(): # Runs the simulation with a profiler & processes the out
 	p_stats.print_stats()
 
 def doOverallData(all_data: dict[str, list[list[float]]], full_dir: str=''):
-	# structure of all_data: row nm (I (..)) : [[mean 1, std 1], [mean 2, std 2], ...]
+	'''
+	Takes the results of multiple simulations, writes them to a file, and returns them.
+
+	### Parameters
+	- `all_data`: dict of strain (I (D), I (Dd), I (d), ...):list of mean-standard deviation lists (at indices 0 and 1 respectively).
+	   Each element should be the result of a different simulation.
+	- `full_dir`: The directory to save the output file under (full filepath).
+
+	### Returns
+	- `f`: The file object the overall data was saved to.
+	- `stat_lsts`: The data saved in `f` (dict strain:[mean, standard deviation]).
+	'''
 	all_data: dict[str, list[list[float]]] = {k: transpose(all_data[k]) for k in all_data}
 	lengths = {'Vector': 6, 'Host': 5} # lengths of row names (ref. net_output.opt et al for examples)
 	f = mkFile(f'{full_dir}net_output_overall.opt')
@@ -304,7 +322,15 @@ def doOverallData(all_data: dict[str, list[list[float]]], full_dir: str=''):
 	return f, stat_lsts
 
 def doMultipleRuns(n: int=3, fdir: str='', force_multi: bool=False) -> dict[str, list[float]]:
-	# Run the simulation multiple times & save the results to a particular directory
+	'''
+	Performs multiple simulations, saves the data, and returns the results (dict strain:[mean, standard deviation]).
+
+	### Parameters
+	- `n`: The number of simulations to perform.
+	- `fdir`: The directory (under full_outputs) to save the output files to.
+	- `force_multi`: Whether or not to force the multiple-run structure to be used. If `False` and `n` is 1, it will simply perform a single
+	   run as normal.
+	'''
 	if n == 1 and not force_multi: run(); return {}
 	full_dir = f'full_outputs/{fdir}/'
 	all_data: dict[str, list[list[float]]] = {}
@@ -319,12 +345,17 @@ def doMultipleRuns(n: int=3, fdir: str='', force_multi: bool=False) -> dict[str,
 	f.close()
 	return stat_lsts
 
-def doRetroStats(fdir: str): # Retroactively calculate overall stats from the given directory
+def doRetroStats(fdir: str):
+	'''
+	Retroactively calculates overall stats from the given directory. Useful if data has been generated, but the `stat_lsts` objects from
+	those generations are not available for whatever reason (this method rebuilds them).
+	'''
 	full_dir = f'full_outputs/{fdir}/'
 	csv_names = FULL_NMS
 	bad_cols = ['Unnamed', 'times']
 	all_data: dict[str, list[list[float]]] = {}
 	for r_dir in os.listdir(full_dir):
+		if '.' in r_dir: continue
 		full_r_dir = f'{full_dir}{r_dir}/'
 		if not os.listdir(full_r_dir): continue
 		for csv_nm in csv_names.values():
@@ -342,7 +373,61 @@ def doRetroStats(fdir: str): # Retroactively calculate overall stats from the gi
 	f.close()
 	return stat_lsts
 
+def getRetroContourData(fn_save: str):
+	'''
+	Reads data from the given file name and returns it in the format required of the contour plotting methods.
+
+	### Parameters
+	- `fn_save`: The full path to the desired file, not including the .csv extension.
+
+	### Returns
+	- `xs_vec`: The column names of the csv file. Corresponds to vector parameters, which are on the x-axis.
+	- `ys_h1`: The row names of the csv file. Corresponds to host parameters, which are on the y-axis.
+	- `zs_freq`: A two-dimensional list of the values in the csv file, structured similarly.
+	'''
+	contour_df = pd.read_csv(f'{fn_save}.csv')
+	xs_vec = [float(x) for x in contour_df.columns if x != 'y']
+	ys_h1 = [float(y) for y in contour_df.loc[:,'y']]
+	zs_freq: list[list[float]] = [[ys[i_x] for i_x in range(len(ys)) if i_x] for ys in contour_df.to_numpy()]
+	return xs_vec, ys_h1, zs_freq
+
+def getGenContourData(pop_data: dict[tuple[float,float], float], fn_save: str):
+	'''
+	Saves the contour plot data to a particular file and returns it in the format required of the plotting methods.
+
+	### Parameters
+	- `pop_data`: A dict of coordinates to frequencies (x,y):z used to generate a contour plot.
+	- `fn_save`: The full path to the desired file, not including the .csv extension.
+
+	### Returns
+	- `xs_vec`: The column names of the csv file. Corresponds to vector parameters, which are on the x-axis.
+	- `ys_h1`: The row names of the csv file. Corresponds to host parameters, which are on the y-axis.
+	- `zs_freq`: A two-dimensional NumPy array of the values in the csv file, structured similarly.
+	'''
+	contour_df = makeCoordDF(pop_data)
+	contour_df.to_csv(f'{fn_save}.csv')
+	xs_vec = [float(x) for x in contour_df.columns]
+	ys_h1 = [float(y) for y in contour_df.index]
+	zs_freq = contour_df.to_numpy()
+	return xs_vec, ys_h1, zs_freq
+
+def getNetAllFreq(stat_lsts: dict[str, list[float]], pop_len: Literal[5,6]):
+	'''
+	Takes a `stat_lsts` object (dict strain:[mean, standard deviation]), filters out the relevant entries (`pop_len` 5 for hosts, 6 for
+	vectors), and returns the net frequency of the mutated allele across all strains. Does not consider standard deviation.
+	'''
+	keys = [k for k in stat_lsts if len(k) == pop_len]
+	keys.sort(reverse=True)
+	net_all_freq = 0.
+	for k in keys: net_all_freq += k.count(D.char)*stat_lsts[k][0]
+	net_all_freq /= (len(keys) - 1)
+	return net_all_freq
+
 def doContourPlots(retro: bool=False): # Generate contour plots for antagonistic parameters
+	'''
+	The primary method for producing contour plots. `retro` should in general be `DO_RETRO_CONTOUR` (it is only a parameter due to scoping
+	issues).
+	'''
 	D.sel_advs = control_sa
 	D.transm_probs = base_ta
 	if ANTAG_TYPE not in antag_types: print('bad antagonistic type'); exit()
@@ -352,47 +437,113 @@ def doContourPlots(retro: bool=False): # Generate contour plots for antagonistic
 	antag_name = ANTAG_NMS[ANTAG_TYPE]
 	h1_rng, vec_rng = [getRange(param_to_change[pop_nm], antag_dims[pop_nm], num_els=CONTOUR_DENSITY) for pop_nm in [H1, VEC]]
 	lengths = {'Vector': 6, 'Host': 5}
-	contour_data = {pop_nm: {(vec_idx, h1_idx): 0. for vec_idx, h1_idx in zip(vec_rng, h1_rng)} for pop_nm in lengths}
+	contour_data = {pop_nm: {(vec_idx, h1_idx): -1. for vec_idx, h1_idx in zip(vec_rng, h1_rng)} for pop_nm in lengths}
 	round_idx = 0
+	h1_bounds = [h1_rng[0], h1_rng[-1]]
+	vec_bounds = [vec_rng[0], vec_rng[-1]]
+	h1_pre_bounds = h1_bounds
+	vec_pre_bounds = vec_bounds
+	if DO_EXTEND:
+		ext_dir = f'full_outputs/{fdir}'
+		existing_dirs = [hv_dir for hv_dir in os.listdir(ext_dir) if not ('png' in hv_dir or 'csv' in hv_dir)]
+		h1s = []
+		vecs = []
+		for e_ds in existing_dirs:
+			h1v, vecv = [float(hvv[1:]) for hvv in e_ds.split('_')]
+			h1s += [h1v]
+			vecs += [vecv]
+		h1_pre_bounds = [min(h1s), max(h1s)]
+		vec_pre_bounds = [min(vecs), max(vecs)]
 	if not retro: # generate data if it's not already there
 		for i in range(CONTOUR_DENSITY):
 			for j in range(CONTOUR_DENSITY):
 				round_idx += 1
-				fdir_ij = f'{fdir}/h{i+1}_v{j+1}'
 				param_to_change[H1] = h1_rng[i]
 				param_to_change[VEC] = vec_rng[j]
+				fdir_ij = f'{fdir}/h{trunc(h1_rng[i])}_v{trunc(vec_rng[j])}'
 				colorist.red(f'Beginning round {round_idx}/{CONTOUR_DENSITY**2} for antagonistic {antag_name}, {param_to_change}')
-				stat_lsts = doMultipleRuns(n=NUM_RUNS, fdir=fdir_ij, force_multi=True)
+				if DO_EXTEND and (isInRange(h1_rng[i], h1_pre_bounds) and isInRange(vec_rng[j], vec_pre_bounds)):
+					colorist.red('\tSkipping round on account of extension')
+					stat_lsts = {}
+					if fdir_ij in os.listdir(f'full_outputs/{fdir}'):
+						f = open(f'full_outputs/{fdir_ij}/net_output_overall.opt', 'r')
+						for opt_line in f.readlines():
+							if 'I (' in opt_line:
+								key, val = opt_line.split(':\t')
+								stat_lsts[key] = [float(msv) for msv in val.split('\t+- ')]
+				else: stat_lsts = doMultipleRuns(n=NUM_RUNS, fdir=fdir_ij, force_multi=True)
 				for pop_nm, pop_len in lengths.items():
-					keys = [k for k in stat_lsts if len(k) == pop_len]
-					keys.sort(reverse=True)
-					net_all_freq = 0.
-					for k in keys: net_all_freq += k.count(D.char)*stat_lsts[k][0]
-					net_all_freq /= (len(keys) - 1)
-					contour_data[pop_nm][(vec_rng[j], h1_rng[i])] = net_all_freq
+					if not stat_lsts: continue
+					contour_data[pop_nm][(vec_rng[j], h1_rng[i])] = getNetAllFreq(stat_lsts, pop_len)
+	for pop_nm, pop_data in contour_data.items():
+		to_pop = [coord for coord, val in pop_data.items() if val < 0]
+		for coord in to_pop: pop_data.pop(coord)
+	colorist.cyan('Data generation complete. Reading data from full_outputs...')
+	for opt_dir in os.listdir(f'full_outputs/{fdir}'):
+		if 'png' in opt_dir or 'csv' in opt_dir: continue
+		h1_c, vec_c = [float(hvc[1:]) for hvc in opt_dir.split('_')]
+		if (h1_c, vec_c) in contour_data['Vector']: continue
+		for pop_nm, pop_len in lengths.items():
+			stat_lsts = doRetroStats(f'{fdir}/{opt_dir}')
+			contour_data[pop_nm][(vec_c, h1_c)] = getNetAllFreq(stat_lsts, pop_len)
+	colorist.cyan('Data reading complete. Filtering out-of-range data out...')
+	for pop_nm, pop_data in contour_data.items():
+		to_pop = [coord for coord in pop_data if not isInRange(coord[0], vec_bounds) or not isInRange(coord[1], h1_bounds)]
+		[pop_data.pop(coord) for coord in to_pop]
+	colorist.cyan('Out-of-range data filtering complete.')
 	for pop_nm in contour_data:
-		contour_df = None
 		xs_vec = []
 		ys_h1 = []
 		fn_save = f'full_outputs/{fdir}/{FULL_NMS[pop_nm]}'
-		if retro: 	# read data from file & format accordingly
-			contour_df = pd.read_csv(f'{fn_save}.csv')
-			xs_vec = [float(x) for x in contour_df.columns if x != 'y']
-			ys_h1 = [float(y) for y in contour_df.loc[:,'y']]
-			zs_freq = [[ys[i_x] for i_x in range(len(ys)) if i_x] for ys in contour_df.to_numpy()]
-		else:		# format generated data
-			contour_df = makeCoordDF(contour_data[pop_nm])
-			contour_df.to_csv(f'{fn_save}.csv')
-			xs_vec = [float(x) for x in contour_df.columns]
-			ys_h1 = [float(y) for y in contour_df.index]
-			zs_freq = contour_df.to_numpy()
-		plt.contourf(xs_vec, ys_h1, zs_freq, cmap=getColorMap(), norm='linear')
-		plt.title(f'{pop_nm}: antagonistic {antag_name} frequencies')
-		plt.xlabel('Vector')
-		plt.ylabel('Host')
-		plt.savefig(f'{fn_save}.png')
-		plt.show()
+		xs_vec, ys_h1, zs_freq = getGenContourData(contour_data[pop_nm], fn_save)
+		if DO_EXTEND:
+			nan_mask = np.isnan(zs_freq)
+			xs_vec_mg, ys_h1_mg = np.meshgrid(xs_vec, ys_h1)
+			xs_vec, ys_h1 = np.mgrid[min(xs_vec):max(xs_vec):100j, min(ys_h1):max(ys_h1):100j]
+			zs_freq = np.array(zs_freq)
+			zs_freq = griddata((xs_vec_mg[~nan_mask].flatten(), ys_h1_mg[~nan_mask].flatten()), zs_freq[~nan_mask].flatten(),
+					  (xs_vec, ys_h1), method='cubic')
+			for i in range(len(zs_freq)):
+				for j in range(len(zs_freq[i])):
+					if zs_freq[i,j] > 1: zs_freq[i,j] = 1
+					elif zs_freq[i,j] < 0: zs_freq[i,j] = 0
+		for scale_type in ['lin', 'mid', 'edge']:
+			plt.contourf(xs_vec, ys_h1, zs_freq, levels=20, cmap=getColorMap(scale_type=scale_type))
+			plt.colorbar(label='Mutated allele frequency')
+			plt.title(f'{pop_nm}: antagonistic {antag_name} frequencies ({SIM_LENGTH} days)')
+			plt.xlabel('Vector')
+			plt.ylabel('Host')
+			plt.savefig(f'{fn_save}_{scale_type}.png')
+			if SHOW_CONTOUR: plt.show()
+			plt.close()
+		pop_data = contour_data[pop_nm]
+		plt.scatter(*transpose(pop_data.keys()), alpha=0.)
+		[plt.annotate(trunc(pop_data[coords]), coords, horizontalalignment='center', rotation=45.) for coords in pop_data]
+		plt.savefig(f'{fn_save}_scatter.png')
 		plt.close()
+
+def fixAntagDirs():
+	'''
+	Ensures the directories created by antagonistic parameters & associated contour plots are of the correct naming scheme. Originally
+	used to switch from an older naming scheme to the current one; should not see much use overall.
+	'''
+	full_dir = f'full_outputs/a{ANTAG_TYPE}_contour'
+	new_dir_names = {}
+	test_str = f'{ANTAG_TYPE[0].upper()}{ANTAG_TYPE[1:]}'
+	for hv_dir in os.listdir(full_dir):
+		if '_' in hv_dir:
+			opt_file = open(f'{full_dir}/{hv_dir}/net_output_overall.opt', 'r')
+			for opt_line in opt_file.readlines():
+				if test_str in opt_line:
+					hv_nums = opt_line.split('{')[1][:-1]
+					strs = hv_nums.split(', ')
+					ndn = ''
+					for str_spt in strs:
+						pop_nm, pop_val = str_spt.split(': ')
+						ndn += f'{pop_nm[1]}{trunc(pop_val)}_'
+					new_dir_names[hv_dir] = ndn[:-2]
+			opt_file.close()
+	[os.rename(f'{full_dir}/{k}', f'{full_dir}/{v}') for k, v in new_dir_names.items()]
 
 if __name__ == '__main__':
 	# Only one of the below sections should be uncommented at any given time

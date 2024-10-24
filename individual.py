@@ -1,10 +1,14 @@
+'''
+File for the class for explicitly-modelled infected individuals.
+'''
+
 from gen_funcs import *
 from func_lib import *
-from random import choices, random
+from random import random
 
 class individual:
 	'''
-	The class for explicitly-modelled individuals.
+	The class for explicitly-modelled infected individuals.
 	'''
 	pc = 0									# Parasite population within the individual
 	genotype_freqs: dict[str, int] = {}		# Dict of genotypes to 'frequencies' (absolute #s)
@@ -107,7 +111,7 @@ class individual:
 
 	def getAlleleFreqs(self):
 		'''
-		Gets the frequencies of each allele in the genotypes present in the individual's parasites. Used primarily in `genDrift`.
+		Gets the counts of each allele in the genotypes present in the individual's parasites. Used primarily in `genDrift`.
 		'''
 		if self.is_hap: return self.genotype_freqs[self.main_all_char]
 		else:
@@ -136,7 +140,7 @@ class individual:
 		for gt in self.genotype_freqs: gtf_wgt_sum += self.all_transm_probs[gt[0]]*self.genotype_freqs[gt]/self.pc_flt
 		return random() < gtf_wgt_sum
 
-	def infectMix(self, pc_num: int=1, do_test_contact: bool=True):
+	def infectMix(self, pc_num: int=1, do_test_contact: bool=True) -> dict[str, float]:
 		'''
 		Performs a mixed infection (dict of parasite genotype to count). Can also be used to simply get a distribution of parasites if desired.
 
@@ -184,7 +188,8 @@ class individual:
 		else: pc_transmitted = mix_sum
 		rem = 0.
 		matched = ''
-		if self.is_dip: self.is_mixed_vec = True
+		if self.is_dip:
+			if not(not mix[self.main_all_char] or mix[self.main_all_char] == pc_transmitted): self.is_mixed_vec = True
 		self.genotype_freqs = dict.fromkeys(self.genotype_freqs, 0)
 		for strn in mix:
 			matched = self.match(strn)

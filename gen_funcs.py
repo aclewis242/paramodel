@@ -1,9 +1,15 @@
+'''
+A library of miscellaneous functions related to the handling of alleles and genotypes.
+'''
+
 from allele import *
 import math
 
 def wf(pc: int):
 	'''
-	Produces the Wright-Fisher genetic drift transmission matrix for the given # of alleles.
+	Produces the Wright-Fisher genetic drift transition matrix for the given # of alleles.
+
+	*As genetic drift now uses binomial sampling directly instead of a transition matrix, this method is now largely obsolete.*
 	'''
 	tp_dim = pc + 1
 	trans_ps = []
@@ -44,6 +50,9 @@ def genGenotypes(alleles: list[allele], is_haploid: bool):
 	return gt
 
 def genAlleles(al: str):
+	'''
+	Generates genotypes from a single genotype (either haploid or diploid). Analogous to `genGenotypes`, but simpler and faster.
+	'''
 	is_haploid = len(al) == 1
 	al = al[0]
 	if is_haploid: return [al.lower(), al.upper()]

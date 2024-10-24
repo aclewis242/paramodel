@@ -1,10 +1,15 @@
+'''
+The file for the stochastic SIRS model class.
+'''
+
 from func_lib import *
 from population import *
 from allele import *
+from random import shuffle
 
 class SIR:
 	'''
-	The stochastic SIR model class.
+	The stochastic SIRS model class.
 	'''
 	pn = ''			# Short population name
 	pn_full = ''	# Full population name
@@ -102,7 +107,7 @@ class SIR:
 			num_failed_trans = 0
 			max_loops = 10000
 			indvs_lst = self.pop.individuals
-			while num_inf < rpt: # loops until the required number of events have occurred, or until the hard limit has been reached (very unusual)
+			while num_inf < rpt: # loops until the required number of events have occurred, or until the hard limit has been reached (unusual)
 				for indv in indvs_lst:
 					if not indv.genotype_freqs[self_sn]: continue
 					elif indv.correction(sn=self_sn):
@@ -119,6 +124,7 @@ class SIR:
 					if num_inf >= rpt: break
 				num_loops += 1
 				if num_loops >= max_loops: break
+				shuffle(indvs_lst) # slow but necessary to ensure fairness
 			rpt -= (num_mixes + num_failed_trans)
 		if rpt: pop.addPop(list(np.multiply(self.Es[idx], rpt)), self_sn, pc_2_trans)
 	

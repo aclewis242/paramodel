@@ -1,3 +1,7 @@
+'''
+The file for the class for a population.
+'''
+
 from func_lib import *
 from individual import *
 from random import choice
@@ -199,7 +203,7 @@ class population:
 
 	def infectMix(self, mix: dict[str, int]):
 		'''
-		Perform a mixed infection, using the given strain distribution.
+		Performs a mixed infection using the given strain distribution.
 		'''
 		is_empty = True
 		for gt in mix:
@@ -231,7 +235,7 @@ class population:
 	
 	def updateSelBiases(self, alleles: list[allele]):
 		'''
-		Updates the population's selection (as well as transmission) biases based on the properties of the given alleles.
+		Updates the population's selection & transmission biases based on the properties of the given alleles.
 		'''
 		self.all_sel_bias: dict[str, float] = {}
 		self.all_transm_probs: dict[str, float] = {}
@@ -268,6 +272,8 @@ class population:
 		'''
 		Update the (macroscopic) strain to infected dictionary to make sure it aligns with the microscopic state of the simulation.
 		'''
+		# presumably unimportant, given that the macroscopic inf dict is no longer really used - consider eliminating entirely if it
+		# starts to incur a meaningfully large computational cost
 		self.inf = dict.fromkeys(self.inf, 0)
 		for ind in self.indvs:
 			gtfs = ind.genotype_freqs

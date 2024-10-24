@@ -1,3 +1,7 @@
+'''
+The file containing the core shell of the simulation.
+'''
+
 from model import *
 from allele import *
 from random import shuffle
@@ -155,10 +159,13 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
 	hist_tms += [ts_i[-1]*dt]
 	return ts_i*dt, ps, pops, hists_v, hists_h, hist_tms
 
-def adaptSim(ps: np.ndarray[float], sum_Rs: float, dt: float):
+def adaptSim(ps: np.ndarray[float], sum_Rs: float, dt: float) -> np.ndarray[int]:
 	'''
 	Adaptively picks the best way to estimate the results of the model. Returns an array containing the number of times each event
 	occurs (ordered the same way as the given probabilities).
+
+	*Note that the adaptive functionality is of limited value computationally and can severely undermine accuracy. Accordingly, it currently
+	defaults to a binomial distribution for choosing the number of times each event happens.*
 
 	### Parameters
 	- `ps`: The relative probabilities of each event, as a NumPy array.

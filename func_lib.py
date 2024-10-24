@@ -1,6 +1,9 @@
-from typing import TextIO as ftype
+'''
+Library of miscellaneous functions, most of which being fairly general and not semantically tied to a specific project.
+'''
+
+from typing import Any
 import numpy as np
-import pandas as pd
 import os
 
 def normalise(l: list[float]):
@@ -17,7 +20,10 @@ def normalise_np(l: np.ndarray[float]):
 	'''
 	return l/sum(l)
 
-def normalise_dict(d: dict[str, float]):
+def normalise_dict(d: dict[str, float]) -> dict[str, float]:
+	'''
+	Normalises the given dictionary (as per its values).
+	'''
 	return dictify(d.keys(), normalise(d.values()))
 
 def fn(f_n: str):
@@ -85,6 +91,8 @@ def printMat(m: list[list]):
 def hapify(g: str):
 	'''
 	Turns the given genotype into its haploid equivalent (e.g., AA.Bb.cc becomes A.B.c). Haploid genotypes are unaffected.
+
+	*Note that heterozygous genes are not preserved, and are instead assumed effectively mutated/capital.*
 	'''
 	return '.'.join([s[0] for s in g.split('.')])
 
@@ -94,7 +102,7 @@ def dipify(g: str):
 	'''
 	return '.'.join([''.join(2*[s])[:2] for s in g.split('.')])
 
-def listify(a) -> list:
+def listify(a: list | np.ndarray | Any) -> list | Any:
 	'''
 	Produces a deep copy of type list from a given multi-dimensional list (or NumPy array). If the elements of the list are complex
 	types, then these objects will still be the same in memory (the deep copy only extends to the lists themselves).
@@ -134,39 +142,21 @@ def transpose(l: list[list]):
 	'''
 	return [list(l2) for l2 in zip(*l)]
 
-def propUnc(*args, do_div: bool=True):
+def linspace(l_lim: float=0., u_lim: float=1., res: int=256):
 	'''
-	Propagates uncertainty for mean calculations.
+	Generates an evenly-spaced list of `res` points between `l_lim` and `u_lim`.
 	'''
-	div_fac = 1
-	if do_div: div_fac = len(args)
-	return np.sqrt(sum([(std/div_fac)**2 for std in args]))
+	return [l_lim + u_lim*i/(res-1) for i in range(res)]
 
-def writeOptLine(f: ftype, name: str, mean_num: float, std_num: float):
+def isInRange(num: float, rng: list[float]=[0.,1.]):
 	'''
-	Writes the given data (`mean_num`, `std_num`) to file `f` with row name `name`.
+	Checks whether or not the given number is in the given range (default 0-1).
 	'''
-	f.write(f'{name}:\t{roundAndSN(mean_num)}\t+- {roundAndSN(std_num)}\n')
+	return num >= rng[0] and num <= rng[1]
 
-def readCSVData(csv_path: str):
+def trunc(pop_val: str | float, trunc_len: int=7):
 	'''
-	Returns data from a CSV file as a dict of column header:value list.
+	Truncates the given string/float (cast to string) such that it has the specified length (default 7).
 	'''
-	return {col_header: list(col_data) for col_header, col_data in pd.read_csv(csv_path).items()}
-
-def saveStats(lst: list[float], frac_to_take: float=0.2) -> tuple[float, float]:
-	'''
-	Gets the mean & standard deviation of the last `frac_to_take` proportion of its elements. Returned in that order.
-	'''
-	data_to_keep = lst[int(-frac_to_take*len(lst)):]
-	return np.mean(data_to_keep), np.std(data_to_keep)
-
-def getRange(base_val: float, dim_val: float, num_els: int=5):
-	u_lim = base_val + dim_val
-	l_lim = base_val - dim_val
-	step_size = (u_lim - l_lim)/(num_els-1)
-	return [l_lim + i*step_size for i in range(num_els)]
-
-def makeCoordDF(c_dict: dict[tuple[float, float], float]):
-	df_data = [(y, x, z) for (x, y), z in c_dict.items()]
-	return pd.DataFrame(df_data, columns=['y', 'x', 'z']).pivot(index='y', columns='x', values='z')
+	pop_val = str(pop_val)
+	return pop_val if len(pop_val) <= trunc_len else pop_val[:trunc_len]

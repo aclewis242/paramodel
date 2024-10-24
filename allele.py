@@ -1,3 +1,7 @@
+'''
+The file containing the class for alleles.
+'''
+
 class allele:
 	'''
 	The class for alleles. Describes the phenotype observed from its expression and contains the character representing it on the genome.
