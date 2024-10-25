@@ -73,14 +73,12 @@ D = allele(char='D')
 # Selection biases for mutated allele, relative to the wild allele (always 1.0)
 control_sa = {H1: 1.0, VEC: 1.0}		# Used for the control case
 hst_sa_inv = {H1: 1.05, VEC: 1.0}		# Used for the invasion example of the host selection advantage case
-hst_sa_exp = {H1: 1.005, VEC: 1.0}		# Used for the host selection advantage case (quantitative)
+hst_sa_exp = {H1: 1.002, VEC: 1.0}		# Used for the host selection advantage case (quantitative)
 vec_sa_exp = {H1: 1.0, VEC: 1.5}		# Used for the vector selection advantage case
 
-asel_dims = {H1: 0.005, VEC: 0.4}		# Range to use in each direction around the base value for antagonistic
+asel_dims = {H1: 0.004, VEC: 0.5}		# Range to use in each direction around the base value for antagonistic
 
-asel_test = {H1: 1.001, VEC: 0.3}
-
-D.sel_advs = asel_test		# Choose the parameter set to use here (except antagonistic, which is further below)
+D.sel_advs = control_sa		# Choose the parameter set to use here (except antagonistic, which is further below)
 
 # For transmission probabilities: the pop ID is the source -- i.e., vec: 0.021 means 2.1% transmission chance from vector to host
 
@@ -96,25 +94,26 @@ base_ta = D.base_transm_probs.copy()					# No advantages
 hst_ta = {H1: hst_adv_transm_p, VEC: vec_base_transm_p} # Host transmission advantage
 vec_ta = {H1: hst_base_transm_p, VEC: vec_adv_transm_p} # Vector transmission advantage
 
-atrans_dims = {H1: 0.003, VEC: 0.001}	# Range in each direction to use around the base value
+atrans_dims = {H1: 0.01, VEC: 0.003}	# Range in each direction to use around the base value
 
-D.transm_probs = base_ta	# Choose the parameter set to use here (except antagonistic, which is below)
+D.transm_probs = base_ta 	# Choose the parameter set to use here (except antagonistic, which is below)
 
 antag_types = {'sel': asel_dims, 'trans': atrans_dims}
 
 NUM_RUNS = 1				# Number of simulations to run
-FILE_DIR = 'transadv_vec_l'	# Directory to save files under, if multiple simulations are being run
-INIT_MUT_PROP = 1.			# Initial proportion of mutated alleles
-SIM_LENGTH = 10000			# The length of the simulation (days)
-SHOW_RES = False 			# Whether or not to show the results
+FILE_DIR = 'vta'	# Directory to save files under, if multiple simulations are being run
+INIT_MUT_PROP = 0.5			# Initial proportion of mutated alleles
+SIM_LENGTH = 20000			# The length of the simulation (days)
+SHOW_RES = True 			# Whether or not to show the results
 PROP_FOR_STATS = 0.2		# The proportion (from the end) of the results to use for statistics
 NUM_HISTS = 0				# Set to 0 for no histograms
 
-DO_ANTAG = False 			# Whether or not to do antagonistic parameters
-ANTAG_TYPE = 'sel'			# 'sel' | 'trans' (for antagonistic selection and transmission respectively)
-CONTOUR_DENSITY = 11 		# Performs (num)^2 rounds
-DO_RETRO_CONTOUR = False 	# Whether or not to generate the contour plot from existing data. Will not generate anything new
+DO_ANTAG = True 			# Whether or not to do antagonistic parameters
+ANTAG_TYPE = 'trans' 		# 'sel' | 'trans' (for antagonistic selection and transmission respectively)
+CONTOUR_DENSITY = 9 		# Performs (num)^2 rounds
+DO_RETRO_CONTOUR = False 	# Whether or not to generate the contour plot from (all) existing data. Will not generate anything new
 DO_EXTEND = True			# Whether or not to extend preexisting data. Will either generate or read data, depending on what's available
+COLOR_SCALE_TYPE = 'edge'	# 'lin' | 'mid' | 'edge', how to scale the colors. 'mid' flattens the middle and 'edge' flattens the edges
 
 ##################################
 ### ----- END USER INPUT ----- ###
@@ -335,7 +334,7 @@ def doMultipleRuns(n: int=3, fdir: str='', force_multi: bool=False) -> dict[str,
 	full_dir = f'full_outputs/{fdir}/'
 	all_data: dict[str, list[list[float]]] = {}
 	for i in range(1,n+1):
-		if n != 1: print(10*'-' + f' RUN {i} ' + 10*'-')
+		if n != 1: colorist.red(10*'-' + f' RUN {i} ' + 10*'-')
 		ret_data = run(fdir=f'{full_dir}{i}/')
 		for k in ret_data:
 			if k in all_data: all_data[k] += [ret_data[k]]
@@ -445,15 +444,20 @@ def doContourPlots(retro: bool=False): # Generate contour plots for antagonistic
 	vec_pre_bounds = vec_bounds
 	if DO_EXTEND:
 		ext_dir = f'full_outputs/{fdir}'
-		existing_dirs = [hv_dir for hv_dir in os.listdir(ext_dir) if not ('png' in hv_dir or 'csv' in hv_dir)]
+		if not os.path.exists(ext_dir): os.makedirs(ext_dir)
+		existing_dirs = [hv_dir for hv_dir in os.listdir(ext_dir) if not ('png' in hv_dir or 'csv' in hv_dir) and '_' in hv_dir]
 		h1s = []
 		vecs = []
 		for e_ds in existing_dirs:
 			h1v, vecv = [float(hvv[1:]) for hvv in e_ds.split('_')]
 			h1s += [h1v]
 			vecs += [vecv]
-		h1_pre_bounds = [min(h1s), max(h1s)]
-		vec_pre_bounds = [min(vecs), max(vecs)]
+		if existing_dirs:
+			h1_pre_bounds = [min(h1s), max(h1s)]
+			vec_pre_bounds = [min(vecs), max(vecs)]
+		else:
+			h1_pre_bounds = [0, 0]
+			vec_pre_bounds = [0, 0]
 	if not retro: # generate data if it's not already there
 		for i in range(CONTOUR_DENSITY):
 			for j in range(CONTOUR_DENSITY):
@@ -480,17 +484,24 @@ def doContourPlots(retro: bool=False): # Generate contour plots for antagonistic
 		for coord in to_pop: pop_data.pop(coord)
 	colorist.cyan('Data generation complete. Reading data from full_outputs...')
 	for opt_dir in os.listdir(f'full_outputs/{fdir}'):
-		if 'png' in opt_dir or 'csv' in opt_dir: continue
+		if ('png' in opt_dir or 'csv' in opt_dir) or '_' not in opt_dir: continue
 		h1_c, vec_c = [float(hvc[1:]) for hvc in opt_dir.split('_')]
 		if (h1_c, vec_c) in contour_data['Vector']: continue
 		for pop_nm, pop_len in lengths.items():
 			stat_lsts = doRetroStats(f'{fdir}/{opt_dir}')
 			contour_data[pop_nm][(vec_c, h1_c)] = getNetAllFreq(stat_lsts, pop_len)
-	colorist.cyan('Data reading complete. Filtering out-of-range data out...')
+	colorist.cyan('Done.')
 	for pop_nm, pop_data in contour_data.items():
 		to_pop = [coord for coord in pop_data if not isInRange(coord[0], vec_bounds) or not isInRange(coord[1], h1_bounds)]
 		[pop_data.pop(coord) for coord in to_pop]
-	colorist.cyan('Out-of-range data filtering complete.')
+	xtick_lbls = roundTrailing(*vec_rng)
+	len_lbls = sum([len(str(xtl)) for xtl in xtick_lbls])
+	if len_lbls > 50: xtick_lbls = [v for i, v in enumerate(xtick_lbls) if not i%2]
+	def addLabels():
+		plt.colorbar(label='Mutated allele frequency')
+		plt.xlabel('Vector')
+		plt.xticks(xtick_lbls, labels=xtick_lbls)
+		plt.ylabel('Host')
 	for pop_nm in contour_data:
 		xs_vec = []
 		ys_h1 = []
@@ -507,19 +518,19 @@ def doContourPlots(retro: bool=False): # Generate contour plots for antagonistic
 				for j in range(len(zs_freq[i])):
 					if zs_freq[i,j] > 1: zs_freq[i,j] = 1
 					elif zs_freq[i,j] < 0: zs_freq[i,j] = 0
-		for scale_type in ['lin', 'mid', 'edge']:
-			plt.contourf(xs_vec, ys_h1, zs_freq, levels=20, cmap=getColorMap(scale_type=scale_type))
-			plt.colorbar(label='Mutated allele frequency')
-			plt.title(f'{pop_nm}: antagonistic {antag_name} frequencies ({SIM_LENGTH} days)')
-			plt.xlabel('Vector')
-			plt.ylabel('Host')
-			plt.savefig(f'{fn_save}_{scale_type}.png')
-			if SHOW_CONTOUR: plt.show()
-			plt.close()
+		plt.contourf(xs_vec, ys_h1, zs_freq, levels=20, cmap=getColorMap(scale_type=COLOR_SCALE_TYPE))
+		plt.title(f'{pop_nm}: antagonistic {antag_name} frequencies ({SIM_LENGTH} days)')
+		addLabels()
+		plt.savefig(f'{fn_save}.png')
+		if SHOW_CONTOUR: plt.show()
+		plt.close()
 		pop_data = contour_data[pop_nm]
-		plt.scatter(*transpose(pop_data.keys()), alpha=0.)
-		[plt.annotate(trunc(pop_data[coords]), coords, horizontalalignment='center', rotation=45.) for coords in pop_data]
-		plt.savefig(f'{fn_save}_scatter.png')
+		scatter_dir = f'full_outputs/{fdir}/scatters'
+		if not os.path.exists(scatter_dir): os.makedirs(scatter_dir)
+		plt.scatter(*transpose(pop_data.keys()), c=list(pop_data.values()), cmap=getColorMap(scale_type=COLOR_SCALE_TYPE))
+		[plt.annotate(trunc(pop_data[coords]), coords, rotation=45) for coords in pop_data]
+		addLabels()
+		plt.savefig(f'{scatter_dir}/{FULL_NMS[pop_nm]}.png')
 		plt.close()
 
 def fixAntagDirs():

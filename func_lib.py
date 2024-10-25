@@ -68,6 +68,16 @@ def roundAndSN(f: float, u_lim: int=4, l_lim: int=2, prec: int=3):
 	if (f < 10**u_lim and f > 10**(-l_lim+1)) or not f: return f'{roundNum(f, prec=prec)}'
 	else: return float2SN(f, p=prec, do_sci=True)
 
+def roundTrailing(*args, max_prec: int=6) -> list[float]:
+	rv = []
+	for arg in args:
+		arg_str = str(arg)
+		if len(arg_str) > max_prec + 2:
+			if not int(arg_str[-2]): rv += [float(arg_str[:-1])]
+			else: rv += [arg + 10**(2-len(arg_str))]
+		else: rv += [arg]
+	return rv
+
 def normPercentList(l: list[float]) -> list[float]:
 	'''
 	Turns the given list into a normalised list of percentages.
@@ -148,10 +158,11 @@ def linspace(l_lim: float=0., u_lim: float=1., res: int=256):
 	'''
 	return [l_lim + u_lim*i/(res-1) for i in range(res)]
 
-def isInRange(num: float, rng: list[float]=[0.,1.]):
+def isInRange(num: float, rng: list[float]=[0.,1.], do_trunc_check: bool=True):
 	'''
 	Checks whether or not the given number is in the given range (default 0-1).
 	'''
+	if do_trunc_check: num = float(trunc(num)); rng = [float(trunc(r)) for r in rng]
 	return num >= rng[0] and num <= rng[1]
 
 def trunc(pop_val: str | float, trunc_len: int=7):
