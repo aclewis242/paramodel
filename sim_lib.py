@@ -157,7 +157,7 @@ def simShell(tmax: float, mdls: list[SIR], nt: float=2e5, alleles: list[allele]=
 	hists_h += [host_pop.getGntDist()]
 	hists_v += [vec_pop.getGntDist()]
 	hist_tms += [ts_i[-1]*dt]
-	return ts_i*dt, ps, pops, hists_v, hists_h, hist_tms
+	return ts_i*dt, ps, pops, hists_v, hists_h, hist_tms, mdls
 
 def adaptSim(ps: np.ndarray[float], sum_Rs: float, dt: float) -> np.ndarray[int]:
 	'''

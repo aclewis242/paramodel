@@ -6,6 +6,7 @@ from func_lib import *
 from population import *
 from allele import *
 from random import shuffle
+import pickle
 
 class SIR:
 	'''
@@ -197,6 +198,28 @@ class SIR:
 		print(f'\n{self.__str__()} params:')
 		[print(f'{k}: {self.__dict__[k]}') for k in self.__dict__]
 	
+	def save(self, s_dir: str=''):
+		s_fn = f'{s_dir}/{self.fn}'
+		os.makedirs(s_dir, exist_ok=True)
+		f = open(s_fn, 'wb')
+		pickle.dump(self, f)
+		f.close()
+
+	def load(path: str) -> 'SIR':
+		if not os.path.exists(path): print(f'failed to load model from path {path}'); return
+		f = open(path, 'rb')
+		mdl = pickle.load(f)
+		f.close()
+		return mdl
+	
+	@property
+	def fn(self): # strange naming scheme is due to pickle pathing being case-insensitive (alleles don't work)
+		disc = 'et'
+		if self.sn == self.sn.upper(): disc = 'm'
+		elif self.sn == self.sn.lower(): disc = 'w'
+		if len(self.sn) == 2: disc = f'h{disc}'
+		return f'{self.pn}_{disc}.sir'
+
 	def __str__(self):
 		return f'population {self.pn}, strain {self.sn}'
 	

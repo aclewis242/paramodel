@@ -3,7 +3,7 @@ Library of miscellaneous functions related to data analysis and recording.
 '''
 
 from func_lib import *
-from typing import TextIO as ftype
+from typing import TextIO
 import pandas as pd
 
 def propUnc(*args, do_div: bool=True) -> float:
@@ -15,13 +15,13 @@ def propUnc(*args, do_div: bool=True) -> float:
 	if do_div: div_fac = len(args)
 	return np.sqrt(sum([(std/div_fac)**2 for std in args]))
 
-def writeOptLine(f: ftype, name: str, mean_num: float, std_num: float):
+def writeOptLine(f: TextIO, name: str, mean_num: float, std_num: float):
 	'''
 	Writes the given data (`mean_num`, `std_num`) to file `f` with row name `name`.
 	'''
 	f.write(f'{name}:\t{roundAndSN(mean_num)}\t+- {roundAndSN(std_num)}\n')
 
-def readCSVData(csv_path: str):
+def readCSVData(csv_path: str) -> dict[str, list[float]]:
 	'''
 	Returns data from a CSV file as a dict of column header:value list.
 	'''

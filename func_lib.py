@@ -146,6 +146,14 @@ def mkFile(f_path: str):
 	if os.path.exists(f_path): os.remove(f_path)
 	return open(f_path, 'x')
 
+def getSubDirs(f_path: str) -> list[str]:
+	if f_path[-1] != '/': f_path += '/'
+	if not os.path.exists(f_path): return []
+	return [path_loc for path_loc in os.listdir(f_path) if os.path.isdir(f'{f_path}{path_loc}')]
+
+def numSubDirs(f_path: str):
+	return len(getSubDirs(f_path)) if os.path.exists(f_path) else 0
+
 def transpose(l: list[list]):
 	'''
 	Transposes the given two-dimensional list. Must be rectangular; that is, all the second-order lists must be equal in length.
@@ -165,9 +173,13 @@ def isInRange(num: float, rng: list[float]=[0.,1.], do_trunc_check: bool=True):
 	if do_trunc_check: num = float(trunc(num)); rng = [float(trunc(r)) for r in rng]
 	return num >= rng[0] and num <= rng[1]
 
-def trunc(pop_val: str | float, trunc_len: int=7):
+def trunc(pop_val: str | float, trunc_len: int=7, **kwargs):
 	'''
 	Truncates the given string/float (cast to string) such that it has the specified length (default 7).
 	'''
 	pop_val = str(pop_val)
 	return pop_val if len(pop_val) <= trunc_len else pop_val[:trunc_len]
+
+def list_str(lst: list, limit: int=40, shoulder: int=5):
+	if len(lst) <= limit: return str(lst)
+	else: return f'{str(lst[:shoulder])[:-1]} ... {str(lst[-shoulder:])[1:]}'
