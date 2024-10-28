@@ -111,7 +111,7 @@ class individual:
 
 	def getAlleleFreqs(self):
 		'''
-		Gets the counts of each allele in the genotypes present in the individual's parasites. Used primarily in `genDrift`.
+		Gets the frequency of the mutated allele in the individual's parasite population. Used primarily in `genDrift`.
 		'''
 		if self.is_hap: return self.genotype_freqs[self.main_all_char]
 		else:

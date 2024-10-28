@@ -8,6 +8,7 @@ from color import *
 from data_lib import *
 from time import time
 from scipy.interpolate import griddata
+from scipy.stats import linregress
 from PIL import Image, ImageDraw
 from io import BytesIO
 import matplotlib.pyplot as plt
@@ -552,7 +553,13 @@ def doContourPlots(retro: bool=False): # Generate contour plots for antagonistic
 		plt.savefig(f'{scatter_dir}/{save_fig}.png')
 		plt.close()
 
+	def getContourLine(pop_data: dict[tuple[float, float], float], mid_val: float=0.5, rng: float=0.05):
+		ok_rng = getRange(mid_val, rng, num_els=2)
+		coords_lst = [coords for coords, val in pop_data.items() if isInRange(val, ok_rng)]
+		return coords_lst
+
 	contour_kwargs = {'levels': 20, 'cmap': getColorMap(scale_type=COLOR_SCALE_TYPE)}
+	lr_done = False
 	for pop_nm in contour_data:
 		fn_save = f'{fulldir}/{FULL_NMS[pop_nm]}'
 		xs_vec, ys_h1, zs_freq = getGenContourData(contour_data[pop_nm], fn_save)
@@ -576,6 +583,23 @@ def doContourPlots(retro: bool=False): # Generate contour plots for antagonistic
 		pop_data = contour_data[pop_nm]
 		plotScatter(pop_data, save_fig=FULL_NMS[pop_nm])
 		zs_all[pop_nm] = pop_data
+		if ANTAG_TYPE == 'trans' and not lr_done:
+			lr_base, lr_rng = 0.5, 0.05
+			lr_coords_raw = getContourLine(pop_data, mid_val=lr_base, rng=lr_rng)
+			lr_coords = transpose([(xc/vec_base_transm_p, yc/hst_base_transm_p) for (xc, yc) in lr_coords_raw])
+			slope, intercept, r, p, stderr = linregress(*lr_coords)
+			plt.scatter(*lr_coords)
+			lr_xs = lr_coords[0]
+			lr_ys = [slope*lrx + intercept for lrx in lr_xs]
+			plt.plot(lr_xs, lr_ys, label=rf'slope -{roundAndSN(-slope)}, R$^2$ {roundAndSN(r**2)}, err {roundAndSN(stderr)}')
+			plt.title(f'Linear regression: frequency {lr_base} (range {lr_rng})')
+			plt.ylabel('Host: relative transmission advantage')
+			plt.xlabel('Vector: relative transmission advantage')
+			plt.legend()
+			plt.savefig(f'{fn_save}_linreg.png')
+			plt.show()
+			plt.close()
+			lr_done = True
 	diff_data = {coord: zs_all['Host'][coord] - zs_all['Vector'][coord] for coord in zs_all['Host']}
 	xv_diff, yh_diff, zs_diff = getGenContourData(diff_data, f'{fulldir}/diff')
 	plt.contourf(xv_diff, yh_diff, zs_diff, **contour_kwargs)
