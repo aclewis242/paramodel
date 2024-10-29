@@ -69,6 +69,9 @@ def roundAndSN(f: float, u_lim: int=4, l_lim: int=2, prec: int=3):
 	else: return float2SN(f, p=prec, do_sci=True)
 
 def roundTrailing(*args, max_prec: int=6) -> list[float]:
+	'''
+	Rounds trailing 0s/9s that may arise from tiny floating-point errors elsewhere.
+	'''
 	rv = []
 	for arg in args:
 		arg_str = str(arg)
@@ -103,6 +106,7 @@ def hapify(g: str):
 	Turns the given genotype into its haploid equivalent (e.g., AA.Bb.cc becomes A.B.c). Haploid genotypes are unaffected.
 
 	*Note that heterozygous genes are not preserved, and are instead assumed effectively mutated/capital.*
+	*As heterozygotes comprise a minuscule fraction of the overall population, the effect of this is negligible.*
 	'''
 	return '.'.join([s[0] for s in g.split('.')])
 
@@ -147,6 +151,9 @@ def mkFile(f_path: str):
 	return open(f_path, 'x')
 
 def getSubDirs(f_path: str) -> list[str]:
+	'''
+	Returns a list of all directories within the given directory (does not include full path or their own sub-directories).
+	'''
 	if f_path[-1] != '/': f_path += '/'
 	if not os.path.exists(f_path): return []
 	return [path_loc for path_loc in os.listdir(f_path) if os.path.isdir(f'{f_path}{path_loc}')]
@@ -181,5 +188,8 @@ def trunc(pop_val: str | float, trunc_len: int=7, **kwargs):
 	return pop_val if len(pop_val) <= trunc_len else pop_val[:trunc_len]
 
 def list_str(lst: list, limit: int=40, shoulder: int=5):
+	'''
+	Writes the given list as a string, if it is too long to reasonably print to the console.
+	'''
 	if len(lst) <= limit: return str(lst)
 	else: return f'{str(lst[:shoulder])[:-1]} ... {str(lst[-shoulder:])[1:]}'

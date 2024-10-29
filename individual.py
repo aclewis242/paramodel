@@ -134,7 +134,7 @@ class individual:
 
 	def doesContactTransmit(self):
 		'''
-		Whether or not a contact between this individual and a susceptible individual resutls in a transmission.
+		Whether or not a contact between this individual and a susceptible individual results in a transmission.
 		'''
 		gtf_wgt_sum = 0
 		for gt in self.genotype_freqs: gtf_wgt_sum += self.all_transm_probs[gt[0]]*self.genotype_freqs[gt]/self.pc_flt

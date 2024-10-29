@@ -78,7 +78,6 @@ control_sa = {H1: 1.0, VEC: 1.0}		# Used for the control case
 hst_sa_inv = {H1: 1.05, VEC: 1.0}		# Used for the invasion example of the host selection advantage case
 hst_sa_exp = {H1: 1.002, VEC: 1.0}		# Used for the host selection advantage case (quantitative)
 vec_sa_exp = {H1: 1.0, VEC: 1.5}		# Used for the vector selection advantage case
-asel_explc = {H1: 1.002, VEC: 0.5}		# Used for the antagonistic selection explicit case
 
 asel_dims = {H1: 0.004, VEC: 0.5}		# Range to use in each direction around the base value for antagonistic
 
@@ -106,7 +105,7 @@ D.transm_probs = base_ta 	# Choose the parameter set to use here (except antagon
 antag_types = {'sel': asel_dims, 'trans': atrans_dims}
 
 NUM_RUNS = 1				# Number of simulations to run
-FILE_DIR = 'testing' 	# Directory to save files under, if multiple simulations are being run (irrelevant for antagonistic)
+FILE_DIR = 'control_new' 	# Directory to save files under, if multiple simulations are being run (irrelevant for antagonistic)
 INIT_MUT_PROP = 0.5			# Initial proportion of mutated alleles
 SIM_LENGTH = 10000			# The length of the simulation (days)
 SHOW_RES = False 			# Whether or not to show the results
@@ -124,7 +123,7 @@ COLOR_SCALE_TYPE = 'edge'	# 'lin' | 'mid' | 'edge', how to scale the colors. 'mi
 ### ----- END USER INPUT ----- ###
 ##################################
 
-TO_RUN = 'diagram'	# 'cost' | 'primary' | 'overall' | 'diagram'
+TO_RUN = 'primary'	# 'cost' | 'primary' | 'overall' | 'diagram'
 
 ANTAG_NMS = {'sel': 'selection', 'trans': 'transmission'}
 
@@ -333,7 +332,7 @@ def doOverallData(all_data: dict[str, list[list[float]]], full_dir: str=''):
 	writeInputs(f)
 	return f, stat_lsts
 
-def writeInputs(f: TextIO):
+def writeInputs(f: TextIO): # Writes the user's input data to a file
 	[f.write(f'{k}: {v}\n') for k, v in USER_INPTS.items()]
 
 def doMultipleRuns(n: int=3, fdir: str='', force_multi: bool=False, do_qc: bool=False) -> dict[str, list[float]]:
@@ -345,6 +344,7 @@ def doMultipleRuns(n: int=3, fdir: str='', force_multi: bool=False, do_qc: bool=
 	- `fdir`: The directory (under full_outputs) to save the output files to.
 	- `force_multi`: Whether or not to force the multiple-run structure to be used. If `False` and `n` is 1, it will simply perform a single
 	   run as normal.
+	- `do_qc`: Whether or not to allow "useless" runs to be skipped (if a preexisting run's mutated frequency is below 0.1 or above 0.9).
 	'''
 	if n == 1 and not force_multi: run(); return {}
 	full_dir = f'full_outputs/{fdir}/'
@@ -450,7 +450,7 @@ def getNetAllFreq(stat_lsts: dict[str, list[float]], pop_len: Literal[5,6]=5):
 	net_all_freq /= (len(keys) - 1)
 	return net_all_freq
 
-def doContourPlots(retro: bool=False): # Generate contour plots for antagonistic parameters
+def doContourPlots(retro: bool=False):
 	'''
 	The primary method for producing contour plots. `retro` should in general be `DO_RETRO_CONTOUR` (it is only a parameter due to scoping
 	issues).
@@ -532,7 +532,7 @@ def doContourPlots(retro: bool=False): # Generate contour plots for antagonistic
 	ys_h1 = []
 	zs_all: dict[str, dict[tuple[float, float], float]] = {pop_nm: {} for pop_nm in FULL_NMS}
 	
-	def addLabels(colorbar_label: str='Mutated allele frequency'):
+	def addLabels(colorbar_label: str='Mutated allele frequency'): # axes, color bar for contour plots
 		param_type = ''
 		if antag_name == 'selection': param_type = 'relative fitness'
 		elif antag_name == 'transmission': param_type = 'transmission probability'
@@ -583,7 +583,7 @@ def doContourPlots(retro: bool=False): # Generate contour plots for antagonistic
 		pop_data = contour_data[pop_nm]
 		plotScatter(pop_data, save_fig=FULL_NMS[pop_nm])
 		zs_all[pop_nm] = pop_data
-		if ANTAG_TYPE == 'trans' and not lr_done:
+		if ANTAG_TYPE == 'trans' and not lr_done: # linear regression
 			lr_base, lr_rng = 0.5, 0.05
 			lr_coords_raw = getContourLine(pop_data, mid_val=lr_base, rng=lr_rng)
 			lr_coords = transpose([(xc/vec_base_transm_p, yc/hst_base_transm_p) for (xc, yc) in lr_coords_raw])
@@ -659,19 +659,18 @@ def compilePlots(output_dir: str, do_show: bool=True):
 		plt.close()
 
 
-def render_latex(formula, fontsize=12, dpi=300, path: str='tex.png'):
-	"""Renders LaTeX formula into image."""
+def render_latex(formula: str, fontsize: int=12, dpi: int=300, path: str='tex.png'):
 	if '.' not in path: path += '.png'
 	fig = plt.figure()
 	text = fig.text(0, 0, rf'{formula}', fontsize=fontsize)
 
-	fig.savefig(BytesIO(), dpi=dpi)  # triggers rendering
+	fig.savefig(BytesIO(), dpi=dpi)
 
 	bbox = text.get_window_extent()
-	width, height = bbox.size / float(dpi) + 0.05
+	width, height = bbox.size/float(dpi) + 0.05
 	fig.set_size_inches((width, height))
 
-	dy = (bbox.ymin / float(dpi)) / height
+	dy = (bbox.ymin/float(dpi))/height
 	text.set_position((0, -dy))
 
 	fig.savefig(f'tex_imgs/{path}', dpi=dpi, transparent=True)
