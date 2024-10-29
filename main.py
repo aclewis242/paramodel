@@ -108,13 +108,13 @@ antag_types = {'sel': asel_dims, 'trans': atrans_dims}
 NUM_RUNS = 1				# Number of simulations to run
 FILE_DIR = 'testing' 	# Directory to save files under, if multiple simulations are being run (irrelevant for antagonistic)
 INIT_MUT_PROP = 0.5			# Initial proportion of mutated alleles
-SIM_LENGTH = 1000			# The length of the simulation (days)
+SIM_LENGTH = 10000			# The length of the simulation (days)
 SHOW_RES = False 			# Whether or not to show the results
 PROP_FOR_STATS = 0.2		# The proportion (from the end) of the results to use for statistics
 NUM_HISTS = 0				# Set to 0 for no histograms
 
-DO_ANTAG = False 			# Whether or not to do antagonistic parameters
-ANTAG_TYPE = 'trans'  		# 'sel' | 'trans' (for antagonistic selection and transmission respectively)
+DO_ANTAG = True 			# Whether or not to do antagonistic parameters
+ANTAG_TYPE = 'sel'  		# 'sel' | 'trans' (for antagonistic selection and transmission respectively)
 CONTOUR_DENSITY = 5 		# Performs (num)^2 rounds
 DO_RETRO_CONTOUR = False 	# Whether or not to generate the contour plot from (all) existing data. Will not generate anything new
 DO_EXTEND = True			# Whether or not to extend preexisting data. Will either generate or read data, depending on what's available
@@ -124,7 +124,7 @@ COLOR_SCALE_TYPE = 'edge'	# 'lin' | 'mid' | 'edge', how to scale the colors. 'mi
 ### ----- END USER INPUT ----- ###
 ##################################
 
-TO_RUN = 'poisson'	# 'cost' | 'primary' | 'overall'
+TO_RUN = 'diagram'	# 'cost' | 'primary' | 'overall' | 'diagram'
 
 ANTAG_NMS = {'sel': 'selection', 'trans': 'transmission'}
 
@@ -534,7 +534,7 @@ def doContourPlots(retro: bool=False): # Generate contour plots for antagonistic
 	
 	def addLabels(colorbar_label: str='Mutated allele frequency'):
 		param_type = ''
-		if antag_name == 'selection': param_type = 'absolute fitness'
+		if antag_name == 'selection': param_type = 'relative fitness'
 		elif antag_name == 'transmission': param_type = 'transmission probability'
 		plt.colorbar(label=colorbar_label)
 		plt.xlabel(f'Vector: {param_type}')
@@ -658,9 +658,87 @@ def compilePlots(output_dir: str, do_show: bool=True):
 		if do_show: plt.show()
 		plt.close()
 
-if __name__ == '__main__':
-	# Change the below string to pick which case to run
 
+def render_latex(formula, fontsize=12, dpi=300, path: str='tex.png'):
+	"""Renders LaTeX formula into image."""
+	if '.' not in path: path += '.png'
+	fig = plt.figure()
+	text = fig.text(0, 0, rf'{formula}', fontsize=fontsize)
+
+	fig.savefig(BytesIO(), dpi=dpi)  # triggers rendering
+
+	bbox = text.get_window_extent()
+	width, height = bbox.size / float(dpi) + 0.05
+	fig.set_size_inches((width, height))
+
+	dy = (bbox.ymin / float(dpi)) / height
+	text.set_position((0, -dy))
+
+	fig.savefig(f'tex_imgs/{path}', dpi=dpi, transparent=True)
+	plt.close(fig)
+
+def drawDiagram(): # for drawing the compartment diagram
+	WHITE = '#FFFFFFFF'
+	BLACK = '#000000FF'
+	TRANS = '#FFFFFF00'
+	raw_dims = (2820, 1272)
+	img_raw = Image.new('RGBA', size=raw_dims, color=WHITE)
+	img = Image.new('RGBA', size=img_raw.size, color=TRANS)
+	draw = ImageDraw.Draw(img)
+	img_width, img_height = img.size
+	cpmts = {'sv': (3*img_width/8, img_height/4),
+			 'iv': (5*img_width/8, img_height/4),
+			 'sh': (img_width/4, 3*img_height/4),
+			 'ih': (img_width/2, 3*img_height/4),
+			 'rh': (3*img_width/4, 3*img_height/4)}
+	rad = 130
+	font_sz = 30
+	lwdth = 10
+
+	mkDir('tex_imgs')
+
+	def paste_img(name: str, c_coords: tuple[int,int], do_center: bool=True):
+		if '.png' not in name: name += '.png'
+		tex_im = Image.open(f'tex_imgs/{name}').convert('RGBA')
+		txi_sz = tex_im.size
+		tex_cs = tuple([int(cc-tc/2) for cc, tc in zip(*[c_coords, txi_sz])])
+		if not do_center:
+			tcl = list(tex_cs)
+			tcl[0] = int(c_coords[0])
+			tex_cs = tuple(tcl)
+		img.paste(tex_im, box=tex_cs)
+		tex_im.close()
+		os.remove(f'tex_imgs/{name}')
+
+	for name, coords in cpmts.items():
+		draw.circle(coords, rad+lwdth, fill=BLACK)
+		draw.circle(coords, rad, fill=WHITE)
+		tex_nm = rf'${name[0].upper()}_{name[1]}$'
+		render_latex(tex_nm, fontsize=font_sz, path=name)
+		paste_img(name, coords)
+
+	render_latex(r'VECTOR:', fontsize=font_sz, path='vec.png')
+	paste_img('vec.png', (20, img_height/4), do_center=False)
+	render_latex(r'HOST:', fontsize=font_sz, path='hst.png')
+	paste_img('hst.png', (20, 3*img_height/4), do_center=False)
+
+	latex_strs = {
+		r'$\mu S_v$': 1.5,
+		r'$\mu N_v$': 1.5,
+		r'$\frac{\beta_hS_vI_h}{N_v}$': 1.5,
+		r'$\mu I_v$': 1.5,
+		r'$\frac{\beta_vS_hI_v}{N_h}$': 1.5,
+		r'$\gamma I_h$': 1.5,
+		r'$\omega R_h$': 1.5
+	}
+
+	[render_latex(tex_s, fontsize=int(font_sz/latex_strs[tex_s]), path=str(i)) for i, tex_s in enumerate(latex_strs.keys())]
+
+	out = Image.alpha_composite(img_raw, img)
+	out.show()
+	out.save('model_out.png')
+
+if __name__ == '__main__':
 	match TO_RUN:
 		### For computational cost tracking
 		case 'cost':
@@ -678,3 +756,7 @@ if __name__ == '__main__':
 		case 'overall':
 			doRetroStats(FILE_DIR)
 			compilePlots(f'full_outputs/{FILE_DIR}')
+		
+		### Draw compartment diagram (partial; some assembly required)
+		case 'diagram':
+			drawDiagram()

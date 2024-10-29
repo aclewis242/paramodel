@@ -12,3 +12,4 @@ executable
 *.opt
 full_outputs*
 models*
+tex_imgs*
