@@ -103,7 +103,7 @@ class individual:
 			if not pre_gtfs[gt]: continue
 			mut_param = self.mut_chance*pre_gtfs[gt]
 			if mut_param < 0.05: continue
-			if mut_param > 25: num_muts = int(mut_param)
+			if mut_param > 250: num_muts = int(mut_param)
 			else: num_muts = self.rng.poisson(mut_param)
 			if not num_muts: continue
 			self.genotype_freqs[gt] -= num_muts

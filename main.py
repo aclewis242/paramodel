@@ -82,7 +82,7 @@ asel_explc = {H1: 1.002, VEC: 0.5}		# Used for the antagonistic selection explic
 
 asel_dims = {H1: 0.004, VEC: 0.5}		# Range to use in each direction around the base value for antagonistic
 
-D.sel_advs = control_sa		# Choose the parameter set to use here (except antagonistic, which is further below)
+D.sel_advs = hst_sa_exp		# Choose the parameter set to use here (except antagonistic, which is further below)
 
 # For transmission probabilities: the pop ID is the source -- i.e., vec: 0.021 means 2.1% transmission chance from vector to host
 
@@ -101,19 +101,19 @@ atrans = {H1: 0.10, VEC: vec_adv_transm_p}				# Antagonistic transmission
 
 atrans_dims = {H1: 0.01, VEC: 0.003}	# Range in each direction to use around the base value
 
-D.transm_probs = atrans 	# Choose the parameter set to use here (except antagonistic, which is below)
+D.transm_probs = base_ta 	# Choose the parameter set to use here (except antagonistic, which is below)
 
 antag_types = {'sel': asel_dims, 'trans': atrans_dims}
 
 NUM_RUNS = 1				# Number of simulations to run
-FILE_DIR = 'hta' 	# Directory to save files under, if multiple simulations are being run (irrelevant for antagonistic)
+FILE_DIR = 'testing' 	# Directory to save files under, if multiple simulations are being run (irrelevant for antagonistic)
 INIT_MUT_PROP = 0.5			# Initial proportion of mutated alleles
-SIM_LENGTH = 20000			# The length of the simulation (days)
-SHOW_RES = True 			# Whether or not to show the results
+SIM_LENGTH = 1000			# The length of the simulation (days)
+SHOW_RES = False 			# Whether or not to show the results
 PROP_FOR_STATS = 0.2		# The proportion (from the end) of the results to use for statistics
 NUM_HISTS = 0				# Set to 0 for no histograms
 
-DO_ANTAG = True 			# Whether or not to do antagonistic parameters
+DO_ANTAG = False 			# Whether or not to do antagonistic parameters
 ANTAG_TYPE = 'trans'  		# 'sel' | 'trans' (for antagonistic selection and transmission respectively)
 CONTOUR_DENSITY = 5 		# Performs (num)^2 rounds
 DO_RETRO_CONTOUR = False 	# Whether or not to generate the contour plot from (all) existing data. Will not generate anything new
@@ -124,7 +124,7 @@ COLOR_SCALE_TYPE = 'edge'	# 'lin' | 'mid' | 'edge', how to scale the colors. 'mi
 ### ----- END USER INPUT ----- ###
 ##################################
 
-TO_RUN = 'primary'	# 'cost' | 'primary' | 'overall'
+TO_RUN = 'poisson'	# 'cost' | 'primary' | 'overall'
 
 ANTAG_NMS = {'sel': 'selection', 'trans': 'transmission'}
 
