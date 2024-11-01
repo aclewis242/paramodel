@@ -658,7 +658,6 @@ def compilePlots(output_dir: str, do_show: bool=True):
 		if do_show: plt.show()
 		plt.close()
 
-
 def render_latex(formula: str, fontsize: int=12, dpi: int=300, path: str='tex.png'):
 	if '.' not in path: path += '.png'
 	fig = plt.figure()
