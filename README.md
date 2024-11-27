@@ -1,4 +1,4 @@
-### *Presentation, written thesis included*
+### *Presentation, written thesis both included*
 
 # Investigating the impact of antagonistic selection in vector-transmitted parasitic diseases: Python code
 ### *Author: Aiden Lewis*
