@@ -1,3 +1,5 @@
+### *Presentation, written thesis included*
+
 # Investigating the impact of antagonistic selection in vector-transmitted parasitic diseases: Python code
 ### *Author: Aiden Lewis*
 *Written for Python 3.11.5 and the latest version of Windows 11 as of October 2024.*
